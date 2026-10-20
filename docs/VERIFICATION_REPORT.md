@@ -138,3 +138,12 @@ Der aktiveres ingen betalt API eller AI-bygger. MapTilers eksisterende abonnemen
 fortsætter. PageSpeed kræver fungerende udgående netværk og tilgængelig kvote; valgfri
 `PAGESPEED_API_KEY` skal fortsat være server-only. En nøgle sikrer ikke alene kvote eller
 beståede analyser. Hosting og backup af den vedvarende SQLite-disk er ejerens driftsopgave.
+# Opfølgning på den første rigtige pilotkontrol
+
+Brugerens Codespace rapporterede 1.448 poster og 20 kontrolforsøg: 16 jobopgaver færdigbehandlet og 4 udsat; ingen bekræftet aktive eller lukkede virksomheder. Ni hjemmesidekontroller stoppede med en generisk robots.txt-fejl, og fire ventede på PageSpeed. De gemte årsager viste ikke de konkrete HTTP-statuskoder; derfor er den eksterne årsag endnu ikke fastslået.
+
+Kodegennemgang fandt, at robots.txt-redirects blev afvist sammen med egentlige serverfejl. Normale 301/302/303/307/308-redirects følges nu op til fem gange med DNS-/URL-kontrol ved hvert hop og den eksisterende fælles domænebegrænsning. Løkker, private mål, HTTPS-nedgradering, 401/403 og uklare serversvar stopper stadig crawl og PageSpeed. HTTP-status indgår nu i fejlårsagen. Hjemmesidecachens versionsnøgle er ændret, så gamle generiske fejl ikke genbruges ved et nyt kontrolforsøg. Eksisterende jobopgaver og historik nulstilles ikke.
+
+`npm run verify:diagnose` åbner den eksisterende database skrivebeskyttet og undersøger robots.txt for højst tre af de domæner, der tidligere blev stoppet. Den viser værtsnavne og HTTP-status for hvert hop, bruger sikker HTTP-transport og følger ingen virksomhedssider eller PageSpeed-kald. Diagnosen ændrer ingen virksomhedsposter, job eller miljøindstillinger. Kør den i brugerens Codespace; den rigtige database er ikke tilgængelig i udviklingsmiljøet her.
+
+Validering: 61 Node-tests og TypeScript-kontrol bestået. Nye tests dækker redirects, DNS-kontrol før hvert hop, loops, hopgrænse, usikre mål, nedgradering og fortsat håndhævelse af viderestillet robots.txt. Dette er ikke en bekræftelse på, at de ni eksterne domæner nu kan crawles, eller at virksomhederne er aktive.

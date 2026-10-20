@@ -13,6 +13,7 @@ import {
 } from "./safe-http";
 import type { WebsiteEvidence } from "./verification-types";
 import type { VerificationStore } from "./verification-store";
+import { fetchRobots } from "./robots-fetch";
 export type InspectorDependencies = {
   get?: (url: string, limit?: number) => Promise<PageResponse>;
   resolve?: (url: string) => Promise<unknown>;
@@ -83,7 +84,7 @@ export async function inspectWebsite(
 ): Promise<WebsiteEvidence> {
   const url = publicWebsite(input);
   if (!url) throw new Error("Usikker eller ugyldig hjemmesideadresse.");
-  const key = "website-v2:" + createHash("sha256").update(url).digest("hex");
+  const key = "website-v3:" + createHash("sha256").update(url).digest("hex");
   const cached = store.cache<WebsiteEvidence>(key);
   if (cached) return cached;
   const deadline = Date.now() + 150000;
@@ -141,16 +142,16 @@ export async function inspectWebsite(
   const allowed = async (target: string) => {
     const u = new URL(target);
     if (!origins.has(u.origin)) {
-      const robots = await request(u.origin + "/robots.txt", 200000);
+      const robots = await fetchRobots(u.origin, request, resolve);
       if (robots.status === 401 || robots.status === 403)
-        throw new Error("robots.txt afviser adgang.");
+        throw new Error(`robots.txt afviser adgang (HTTP ${robots.status}).`);
       if (
         robots.status >= 300 &&
         robots.status !== 404 &&
         robots.status !== 410
       )
         throw new Error(
-          "robots.txt kunne ikke afklares sikkert; crawl er ikke udført.",
+          `robots.txt kunne ikke afklares sikkert (HTTP ${robots.status}); crawl er ikke udført.`,
         );
       const body = robots.status === 200 ? robots.body : "";
       origins.set(u.origin, body);
