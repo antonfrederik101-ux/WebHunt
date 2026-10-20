@@ -2,6 +2,18 @@
 
 Dansk virksomhedskort til webdesignere. Next.js 16, React 19, TypeScript, Tailwind CSS 4, Leaflet/markercluster, Lucide og Supabase. Lyst tema med hvid sidebar, lysegrå baggrund, mørk tekst og mintgrønne knapper. MapTiler Streets v4 viser det detaljerede gadekort.
 
+## Aktuel leverance: fase 1 og 2
+
+Se [udviklingsstatus og testbeviser](DEVELOPMENT_PROGRESS.md). Resten af
+[masterplanen](docs/PROJECT_ROADMAP.md) er gemt som senere arbejde.
+Eksisterende virksomhedsdata, leads, vurderinger og miljøfiler bevares.
+Denne opdatering kræver ingen genimport og ingen nye nøgler eller abonnementer.
+
+I et eksisterende Codespace: kør `git pull --ff-only && bash scripts/start-preview.sh`.
+Startscriptet kontrollerer WebHunt på præcis port 3000, genbruger en kørende server
+og skriver fejl i `.data/logs/preview.log`. Åbn derefter port 3000 under **Ports**.
+En genopbygning af containeren er ikke nødvendig.
+
 ## Start lokalt
 
 Kræver Node.js 24.5+ (testet med 24.19.0, fastlagt i `.nvmrc`) og npm.
@@ -17,15 +29,15 @@ npm run dev
 
 Startkommandoerne aktiverer Nodes officielle `--use-env-proxy`, så eksisterende HTTPS_PROXY/HTTP_PROXY/NO_PROXY benyttes i cloudmiljøet uden at ændre TLS-kontrollen. Uden proxyvariabler bruges normal direkte forbindelse.
 
-Kort og virksomhedssøgning kræver ingen API-nøgle. Uden Supabase kan du bruge lokale leads, noter og vurderinger i browserens localStorage. Det er udtrykkeligt mærket som lokal tilstand; det er ikke permanent databaselagring, og slettede browserdata kan ikke genskabes. Ingen opdigtede virksomheder bruges som fallback. Uden adgang til datakilden vises en fejl og en genforsøgsknap.
+Det lokale geografiske oversigtskort og søgning i egen virksomhedsdatabase kræver ingen API-nøgle. Gade-/detaljekortet kræver den eksisterende `NEXT_PUBLIC_MAPTILER_KEY`. Uden Supabase kan du bruge lokale leads, noter og vurderinger i browserens localStorage. Det er udtrykkeligt mærket som lokal tilstand; det er ikke permanent databaselagring, og slettede browserdata kan ikke genskabes. Ingen opdigtede virksomheder bruges som fallback. Uden adgang til datakilden vises en fejl og en genforsøgsknap.
 
 ## Funktioner
 
 - Danmarkskort inkl. Bornholm, øer, zoom, panorering, clustering og klikbare virksomhedsmarkører.
 - Virksomheder læses fra egen vedvarende database. Første importområde er Nykøbing Falster; flere områder kan tilføjes via importjobbet. Det er ikke et komplet CVR-register.
-- Overture Places importeres separat fra kortet. Zoom og søgning kontakter kun egen database, aldrig Overpass. Højst 600 virksomheder pr. udsnit; dækning og dato vises tydeligt.
-- Navn, adresse, by og postnummer filtreres blandt indlæste virksomheder. Enter eller “Søg som sted” søger en dansk by/postnummer via Nominatim. Kendte bygenveje kræver ikke geokodning.
-- Branche- og statusfiltre; “Find potentielle kunder” viser røde/orange vurderinger. Alle importerede virksomheder starter grå, også når en webadresse mangler.
+- Overture Places importeres separat fra kortet. Zoom og søgning kontakter kun egen database, aldrig Overpass. Sider på højst 600 virksomheder; “Indlæs flere virksomheder” henter næste side. Dækning, faktiske antal og dato vises tydeligt.
+- Navn, adresse, by, postnummer, branche og eventuelt CVR søges i hele det importerede kortudsnit i databasen, også efter de første 600 poster. Byforslag navigerer uden geokodning; “Søg som sted” og ukendte postnumre bruger Nominatim.
+- Branche- og statusfiltre. Rød betyder ingen registreret selvstændig hjemmeside (også sociale profiler alene), grå betyder registreret men ikke kontrolleret. Orange/grøn kræver en eksisterende teknisk eller personlig vurdering. Manglende registrering er ikke bevis for en manglende hjemmeside. Farvetællinger og filtre gælder de indlæste poster; blandede klynger viser alle repræsenterede farver. Importerede råstatusser og gemte vurderinger omskrives ikke.
 - Virksomhedspanel med kildelink, kontaktkopiering, telefon-/hjemmesidelink, manuel status, analyse og gem som lead.
 - Leads med noter, kontaktstatus, dato, sletning og CSV-eksport (inkl. beskyttelse mod simple regnearksformler).
 - Statistik over det faktisk indlæste datasæt og brugerens egne leads. Ingen simulerede tal.
@@ -43,6 +55,7 @@ Kort og virksomhedssøgning kræver ingen API-nøgle. Uden Supabase kan du bruge
    ```
 
    Anvend aldrig en service-role-/secret-nøgle her. `NEXT_PUBLIC_`-værdier er synlige i browseren; sikkerheden ligger i Auth og RLS.
+
 4. I **Authentication → URL Configuration** sættes Site URL til appens faktiske adresse. Tilføj den præcise `/auth/callback`-adresse til Redirect URLs, også callback med `?recovery=1` for nulstilling. Under lokal udvikling bruges appens lokale origin; ved hosting skal produktionsdomænet tilføjes. Standardtemplates med `{{ .ConfirmationURL }}` understøttes.
 5. Behold e-mailbekræftelse slået til. Konfigurer SMTP hos Supabase til stabil e-maillevering i produktion, og gennemgå Auth-rate limits/password-policy.
 6. Genstart udviklingsserveren. `NEXT_PUBLIC_`-værdier indlejres ved build: kør et nyt `npm run build`, før produktionsserveren genstartes.
@@ -110,7 +123,6 @@ Browserprøverne bruger Chromium på `/usr/bin/chromium` i dette cloudmiljø. P�
 
 Ingen credentials, opdigtede virksomhedsdata, tracking eller tredjepartsfonte er indbygget.
 
-
 ## Åbn hjemmesiden og gem på GitHub
 
 Et publiceret **Codex-cloudmiljø er et udviklingssnapshot**, ikke en offentlig webhosting. Der oprettes ikke automatisk en hjemmesideadresse. Denne session har ingen funktion til at oprette en offentlig browser-previewadresse. Den lokale browseradresse virker på den computer, hvor udviklingsserveren kører.
@@ -172,7 +184,6 @@ Kortvisning og lokale leads kan testes uden Supabase-konfiguration. Cloudmiljøe
 
 Hvis browsereditoren er åben, men en gammel codespace ikke bruger den nye opsætning, åbn kommandopaletten med **F1**, vælg **Codespaces: Rebuild Container**, og følg porttrinnene igen. Codespaces er et udviklingsmiljø, ikke permanent offentlig webhosting.
 
-
 ## Kortrettelse: lokal oversigt og licenseret MapTiler
 
 OpenStreetMaps standardfliser på `tile.openstreetmap.org` er helt fjernet fra appens kortkode. `osm.wiki/Blocked` i fejlflisen var et hjælpelink, ikke den kaldte kortserver. Skærmbilledet dokumenterer en policyblokering; uden netværksheaderne fra brugerens Codespace kan den præcise udløsende regel ikke fastslås. Appen forsøger ikke at løse dette med skjult proxying, falsk User-Agent/Referer, nye IP-adresser eller rotation mellem gratis fliseservere.
@@ -191,6 +202,7 @@ OpenStreetMaps standardfliser på `tile.openstreetmap.org` er helt fjernet fra a
    ```
 
    Bevar eksisterende Supabase-/Google-værdier. Nøglen er en browsernøgle og indgår i kortforespørgslerne; derfor er domænebegrænsning og kvoter nødvendige. Brug ikke en privat administrationsnøgle. `.env.local` er Git-ignoreret og må ikke committes. Send ikke nøglen i chat. Codex- og Codespaces-miljøvariabler er separate.
+
 5. Genstart udviklingsserveren. Hvis den kører i terminalen, tryk **Ctrl+C** og kør `npm run dev` igen. Ved automatisk baggrundsstart kan du vælge **F1 → Codespaces: Rebuild Container**, som bevarer projektets ignorerede lokale fil og genstarter appen. Produktionsserveren kræver et nyt `npm run build`, fordi `NEXT_PUBLIC_` indlejres ved build.
 6. Genindlæs browser-previewen. Kortet skal vise **MapTiler Streets Light · gader, bynavne og bygninger**. Ved HTTP 401/403 vises en tydelig adgangsfejl og det lokale oversigtskort; appen stopper nye kortforespørgsler i den session og skifter ikke til en anden ekstern leverandør. Kontrollér nøgle, origins, plan og kvote i MapTiler.
 

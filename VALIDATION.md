@@ -1,5 +1,20 @@
 # WebHunt — verificeret 20. oktober 2026
 
+## Seneste leverance: kun fase 1 og 2
+
+Se [DEVELOPMENT_PROGRESS.md](DEVELOPMENT_PROGRESS.md) for den aktuelle status,
+ændrede filer, databevarelse og testbeviser. 38 Node-tests, 16 almindelige Chromium-tests,
+3 kontrollerede MapTiler-browsertests, HTTP-API mod 707 isolerede databaseposter og
+Supabase-katalogmigration i isoleret PostgreSQL består. Produktionsbuild og typekontrol består.
+Live MapTiler-stil og to rigtige fliser svarer HTTP 200 med eksisterende nøgle.
+Direkte live kortfliser i Codex-Chromium er begrænset af miljøets certifikatfejl;
+permanent CA-import blev afvist af automatisk godkendelseskontrol. Ingen TLS-kontrol er deaktiveret.
+Brugerens Codespace har separat bekræftet import af 1.448 virksomheder. Ingen genimport er nødvendig.
+
+De efterfølgende afsnit er **historiske testnoter** fra tidligere leverancer.
+Oplysninger om tidligere tomme databaser, Overpass-reservekilder og mørke/grå kort
+beskriver ikke den nuværende datavej: kort og søgning læser egen database uden Overpass.
+
 ## Resultater
 
 - Node.js 24.19.0. Produktionsbuild og TypeScript-kontrol består.

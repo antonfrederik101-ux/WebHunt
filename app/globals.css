@@ -2426,3 +2426,134 @@ small {
 .status-badge[data-status="good"] {
   color: #17784f;
 }
+
+/* Phase 2: search, evidence and honest color distribution on the existing light map. */
+.search-suggestions {
+  display: grid;
+  gap: 5px;
+  margin-top: 8px;
+}
+.search-suggestions button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px;
+  border: 1px solid #dce7e1;
+  border-radius: 8px;
+  background: #f8fbf9;
+  color: #294a3a;
+  text-align: left;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.search-suggestions button:hover {
+  background: #e8f7ef;
+}
+.all-statuses {
+  width: 100%;
+  padding: 8px 10px;
+  margin: 0 0 9px;
+  border: 1px solid #dce7e1;
+  border-radius: 8px;
+  color: #486154;
+  background: #fff;
+  text-align: left;
+  font-size: 11px;
+}
+.all-statuses.active {
+  border-color: #9bd8bb;
+  background: #eef9f3;
+  color: #237653;
+}
+.status-scope {
+  line-height: 1.7;
+  margin-top: 10px;
+}
+.catalog-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 24px;
+  margin-top: 12px;
+  padding: 12px 15px;
+  background: #fff;
+  border: 1px solid #dce7e1;
+  border-radius: 10px;
+  color: #5a7166;
+  font-size: 11px;
+}
+.catalog-summary strong {
+  color: #294a3a;
+  font-size: 13px;
+}
+.catalog-summary .button {
+  margin-left: auto;
+}
+.status-evidence {
+  margin: 18px 0;
+  padding: 14px;
+  border: 1px solid #dce7e1;
+  border-radius: 12px;
+  background: #f5faf7;
+  color: #365343;
+}
+.status-evidence strong {
+  font-size: 12px;
+}
+.status-evidence p {
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 7px 0;
+}
+.status-evidence small {
+  display: block;
+  font-size: 10px;
+  line-height: 1.7;
+  color: #5a7166;
+}
+.social-profiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+.social-profiles a {
+  font-size: 11px;
+  color: #237653;
+  text-decoration: underline;
+  overflow-wrap: anywhere;
+}
+.hunt-cluster {
+  background: white;
+  border: none;
+  color: #294a3a;
+  box-shadow: 0 2px 9px #24473730;
+}
+.hunt-cluster .cluster-ring {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 4px;
+}
+.cluster-ring b {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 2px solid white;
+  border-radius: 50%;
+  background: #fff;
+  color: #294a3a;
+  font-size: 12px;
+}
+@media (max-width: 600px) {
+  .catalog-summary {
+    gap: 8px 14px;
+  }
+  .catalog-summary .button {
+    width: 100%;
+    margin-left: 0;
+  }
+}

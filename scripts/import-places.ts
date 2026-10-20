@@ -52,7 +52,11 @@ async function main() {
     type: string;
     features: PlaceFeature[];
   };
-  if (input.type !== "FeatureCollection" || !Array.isArray(input.features))
+  if (
+    !input ||
+    input.type !== "FeatureCollection" ||
+    !Array.isArray(input.features)
+  )
     throw new Error("Forventede Overture GeoJSON FeatureCollection.");
   const snapshot = prepareSnapshot(input.features, region, value("--release"));
   const dir = path.join(process.cwd(), ".data", "imports");

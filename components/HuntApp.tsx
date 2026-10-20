@@ -50,6 +50,7 @@ import {
   statuses,
 } from "@/lib/types";
 import { csv } from "@/lib/businesses";
+import { presentBusiness, statusEvidence } from "@/lib/business-status";
 import { migrateLocalData } from "@/lib/local-data";
 import type { SupabaseHealth } from "@/lib/supabase-health";
 import { getSupabase } from "@/lib/supabase";
@@ -83,16 +84,18 @@ export default function HuntApp() {
     [query, setQuery] = useState(""),
     [category, setCategory] = useState("Alle brancher"),
     [filters, setFilters] = useState<Status[]>([]),
-    [target, setTarget] = useState(
-      cities.find((c) => c.name === "Nykøbing Falster") || cities[0],
-    ),
-    [area, setArea] = useState("Nykøbing Falster"),
-    [bbox, setBbox] = useState(""),
+    [target, setTarget] = useState(cities[0]),
+    [area, setArea] = useState("Danmark"),
+    [bbox, setBbox] = useState("54.4,7.8,57.9,15.3"),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [retrySeconds, setRetrySeconds] = useState(0),
     [overview, setOverview] = useState(false),
     [capped, setCapped] = useState(false),
+    [catalogTotal, setCatalogTotal] = useState<number | null>(null),
+    [matchedTotal, setMatchedTotal] = useState<number | null>(null),
+    [availableCategories, setAvailableCategories] = useState<string[]>([]),
+    [nextOffset, setNextOffset] = useState<number | null>(null),
     [fetchedAt, setFetchedAt] = useState(""),
     [dataSource, setDataSource] = useState("Overture Maps · egen database"),
     [dataWarning, setDataWarning] = useState(""),
@@ -115,6 +118,12 @@ export default function HuntApp() {
     [saving, setSaving] = useState(false);
   const sb = getSupabase(),
     seq = useRef(0),
+    requestController = useRef<AbortController | null>(null),
+    pageState = useRef({
+      loaded: 0,
+      next: null as number | null,
+      revision: "",
+    }),
     toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const notify = useCallback((text: string) => {
     setToast(text);
@@ -242,46 +251,103 @@ export default function HuntApp() {
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
   }, [notify]);
-  const fetchBusinesses = useCallback(async (bounds: string) => {
-    const n = ++seq.current;
-    setLoading(true);
-    setError("");
-    try {
-      const r = await fetch(
-        "/api/businesses" +
-          (bounds ? "?bbox=" + encodeURIComponent(bounds) : ""),
-      );
-      const d = await r.json();
-      if (n !== seq.current) return;
-      if (!r.ok) {
-        setRetrySeconds(
-          Math.max(
-            0,
-            Number(d.retryAfter || r.headers.get("Retry-After") || 0),
-          ),
+  const fetchBusinesses = useCallback(
+    async (bounds: string, append = false) => {
+      if (append && pageState.current.next === null) return;
+      const n = ++seq.current;
+      requestController.current?.abort();
+      const controller = new AbortController();
+      requestController.current = controller;
+      setLoading(true);
+      setError("");
+      const params = new URLSearchParams();
+      if (bounds) params.set("bbox", bounds);
+      if (query.trim()) params.set("q", query.trim());
+      if (category !== "Alle brancher") params.set("category", category);
+      if (append) params.set("offset", String(pageState.current.next));
+      try {
+        const r = await fetch(`/api/businesses?${params}`, {
+          signal: controller.signal,
+        });
+        const d = await r.json();
+        if (n !== seq.current) return;
+        if (!r.ok) {
+          setRetrySeconds(
+            Math.max(
+              0,
+              Number(d.retryAfter || r.headers.get("Retry-After") || 0),
+            ),
+          );
+          throw new Error(d.error || "Virksomhedsdata kunne ikke læses.");
+        }
+        if (!Array.isArray(d.businesses))
+          throw new Error("Databasen returnerede et ugyldigt svar. Prøv igen.");
+        if (
+          append &&
+          d.revision &&
+          pageState.current.revision &&
+          d.revision !== pageState.current.revision
+        )
+          throw new Error(
+            "Databasen er opdateret under indlæsningen. Vælg Prøv igen for en samlet ny visning.",
+          );
+        setRetrySeconds(0);
+        setBusinesses((previous) =>
+          append
+            ? [
+                ...new globalThis.Map<string, Business>(
+                  [...previous, ...d.businesses].map((b: Business) => [
+                    b.id,
+                    b,
+                  ]),
+                ).values(),
+              ]
+            : d.businesses,
         );
-        throw new Error(d.error);
+        pageState.current = {
+          loaded: (append ? pageState.current.loaded : 0) + d.businesses.length,
+          next: d.nextOffset ?? null,
+          revision: d.revision || "",
+        };
+        setNextOffset(d.nextOffset ?? null);
+        setCatalogTotal(
+          typeof d.catalogTotal === "number" ? d.catalogTotal : null,
+        );
+        setMatchedTotal(
+          typeof d.matchedTotal === "number" ? d.matchedTotal : null,
+        );
+        setAvailableCategories(Array.isArray(d.categories) ? d.categories : []);
+        setOverview(d.overview);
+        setCapped(d.limited);
+        setFetchedAt(d.fetchedAt || "");
+        setDataSource(d.source || "Overture Maps · egen database");
+        setDataWarning(d.warning || "");
+      } catch (e) {
+        if (n === seq.current && !controller.signal.aborted)
+          setError(
+            ((e as Error).message || "Virksomhederne kunne ikke indlæses.") +
+              " Eventuelle tidligere resultater er bevaret.",
+          );
+      } finally {
+        if (n === seq.current) setLoading(false);
       }
-      setRetrySeconds(0);
-      setBusinesses(d.businesses);
-      setOverview(d.overview);
-      setCapped(d.limited);
-      setFetchedAt(d.fetchedAt);
-      setDataSource(d.source || "Overture Maps · egen database");
-      setDataWarning(d.warning || "");
-    } catch (e) {
-      if (n === seq.current)
-        setError(
-          ((e as Error).message || "Virksomhederne kunne ikke indlæses.") +
-            " Eventuelle tidligere resultater er bevaret.",
-        );
-    } finally {
-      if (n === seq.current) setLoading(false);
-    }
-  }, []);
+    },
+    [query, category],
+  );
   useEffect(() => {
-    if (bbox) fetchBusinesses(bbox);
-  }, [bbox, fetchBusinesses]);
+    if (!bbox) return;
+    const timer = setTimeout(
+      () => {
+        void fetchBusinesses(bbox);
+      },
+      query ? 300 : 80,
+    );
+    return () => {
+      clearTimeout(timer);
+      ++seq.current;
+      requestController.current?.abort();
+    };
+  }, [bbox, fetchBusinesses, query]);
   useEffect(() => {
     if (retrySeconds <= 0) return;
     const timeout = setTimeout(
@@ -292,8 +358,7 @@ export default function HuntApp() {
   }, [retrySeconds]);
   const onBounds = useCallback((b: string) => setBbox(b), []);
   const all = useMemo(
-    () =>
-      businesses.map((b) => ({ ...b, status: overrides[b.id] || b.status })),
+    () => businesses.map((b) => presentBusiness(b, overrides[b.id])),
     [businesses, overrides],
   );
   const filtered = useMemo(
@@ -303,9 +368,11 @@ export default function HuntApp() {
           (!filters.length || filters.includes(b.status)) &&
           (category === "Alle brancher" || b.category === category) &&
           (!query ||
-            `${b.name} ${b.city} ${b.postcode} ${b.address}`
+            `${b.name} ${b.city} ${b.postcode} ${b.address} ${b.category} ${b.cvr || ""}`
               .toLocaleLowerCase("da")
-              .includes(query.toLocaleLowerCase("da"))),
+              .includes(
+                query.trim().normalize("NFKC").toLocaleLowerCase("da"),
+              )),
       ),
     [all, filters, category, query],
   );
@@ -319,7 +386,10 @@ export default function HuntApp() {
     [all],
   );
   const current = selected
-    ? { ...selected, status: overrides[selected.id] || selected.status }
+    ? presentBusiness(selected, overrides[selected.id])
+    : null;
+  const evidence = selected
+    ? statusEvidence(selected, overrides[selected.id], analyses[selected.id])
     : null;
   const choose = useCallback((b: Business) => {
     setSelected(b);
@@ -476,8 +546,8 @@ export default function HuntApp() {
       });
       const d = await r.json();
       if (!r.ok) {
-        await changeStatus(b.id, "unknown");
-        throw new Error(d.error);
+        // An unavailable measurement must not erase an existing personal assessment.
+        throw new Error(d.error || "Analysen kunne ikke gennemføres.");
       }
       await changeStatus(b.id, d.status, d);
       notify("Hjemmesideanalysen er klar");
@@ -492,7 +562,7 @@ export default function HuntApp() {
       ...l,
       business: {
         ...l.business,
-        status: overrides[l.business.id] || l.business.status,
+        ...presentBusiness(l.business, overrides[l.business.id]),
       },
     }));
     const url = URL.createObjectURL(
@@ -615,13 +685,20 @@ export default function HuntApp() {
                 className="search-field"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  searchPlace();
+                  const knownCity = cities.find(
+                    (c) =>
+                      c.name.toLocaleLowerCase("da-DK") ===
+                      query.trim().toLocaleLowerCase("da-DK"),
+                  );
+                  if (knownCity) goCity(knownCity);
+                  else if (/^\d{4}$/.test(query.trim())) void searchPlace();
+                  else void fetchBusinesses(bbox);
                 }}
               >
                 <Search size={17} />
                 <input
                   id="search"
-                  placeholder="Virksomhed, by eller postnummer"
+                  placeholder="Navn, by, postnr. eller branche"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                 />
@@ -649,6 +726,45 @@ export default function HuntApp() {
                   Søg “{query}” som sted <ArrowRight size={14} />
                 </button>
               )}
+              {query.trim() && (
+                <div className="search-suggestions" aria-label="Søgeforslag">
+                  {cities
+                    .filter((c) =>
+                      c.name
+                        .toLocaleLowerCase("da-DK")
+                        .includes(query.trim().toLocaleLowerCase("da-DK")),
+                    )
+                    .slice(0, 3)
+                    .map((city) => (
+                      <button
+                        key={city.name}
+                        type="button"
+                        onClick={() => goCity(city)}
+                      >
+                        <MapPin size={14} />
+                        {city.name}
+                        <ArrowUpRight size={12} />
+                      </button>
+                    ))}
+                  {all
+                    .filter((b) =>
+                      `${b.name} ${b.category}`
+                        .toLocaleLowerCase("da-DK")
+                        .includes(query.trim().toLocaleLowerCase("da-DK")),
+                    )
+                    .slice(0, 3)
+                    .map((b) => (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => choose(b)}
+                      >
+                        <Building2 size={14} />
+                        {b.name}
+                      </button>
+                    ))}
+                </div>
+              )}
               <div className="filter-group">
                 <label className="field-label" htmlFor="industry">
                   BRANCHE
@@ -661,7 +777,12 @@ export default function HuntApp() {
                     onChange={(e) => setCategory(e.target.value)}
                   >
                     <option>Alle brancher</option>
-                    {Array.from(new Set(all.map((b) => b.category)))
+                    {Array.from(
+                      new Set([
+                        ...availableCategories,
+                        ...all.map((b) => b.category),
+                      ]),
+                    )
                       .sort((a, b) => a.localeCompare(b, "da"))
                       .map((c) => (
                         <option key={c}>{c}</option>
@@ -684,6 +805,12 @@ export default function HuntApp() {
                     Nulstil
                   </button>
                 </div>
+                <button
+                  className={`all-statuses ${filters.length === 0 ? "active" : ""}`}
+                  onClick={() => setFilters([])}
+                >
+                  Alle farver <span>{all.length}</span>
+                </button>
                 <div className="status-filters">
                   {(["missing", "improve", "good", "unknown"] as Status[]).map(
                     (s) => (
@@ -708,7 +835,7 @@ export default function HuntApp() {
                         />
                         <span>
                           {s === "missing"
-                            ? "Sandsynligvis ingen hjemmeside"
+                            ? "Ingen registreret hjemmeside"
                             : s === "improve"
                               ? "Kan forbedres"
                               : s === "good"
@@ -720,6 +847,11 @@ export default function HuntApp() {
                     ),
                   )}
                 </div>
+                <p className="micro status-scope">
+                  Farverne gælder de indlæste opslag. Rød er en
+                  registreringsoplysning, ikke bevis for en manglende
+                  hjemmeside.
+                </p>
               </div>
               <button
                 className="button primary find-button"
@@ -781,7 +913,7 @@ export default function HuntApp() {
             <>
               <div className="map-topline">
                 <div>
-                  <span className="eyebrow">OVERBLIK</span>
+                  <span className="eyebrow">VIRKSOMHEDSKORT · DANMARK</span>
                   <h2>
                     {area}. <span>Find muligheder.</span>
                   </h2>
@@ -936,7 +1068,7 @@ export default function HuntApp() {
                           style={{ background: statuses[s].color }}
                         />
                         {s === "missing"
-                          ? "Ingen hjemmeside*"
+                          ? "Ingen registreret side"
                           : s === "improve"
                             ? "Kan forbedres"
                             : s === "good"
@@ -951,6 +1083,38 @@ export default function HuntApp() {
                   </div>
                 </div>
               </section>
+              <div className="catalog-summary" role="status">
+                <span>
+                  <strong>
+                    {catalogTotal === null
+                      ? "—"
+                      : catalogTotal.toLocaleString("da-DK")}
+                  </strong>{" "}
+                  i databasen
+                </span>
+                <span>
+                  <strong>
+                    {error && !all.length
+                      ? "—"
+                      : filtered.length.toLocaleString("da-DK")}
+                  </strong>{" "}
+                  vist med dine filtre
+                </span>
+                <span>
+                  {matchedTotal === null
+                    ? `${all.length} indlæst`
+                    : `${all.length.toLocaleString("da-DK")} af ${matchedTotal.toLocaleString("da-DK")} indlæst i søgningen`}
+                </span>
+                {nextOffset !== null && (
+                  <button
+                    className="button subtle"
+                    disabled={loading}
+                    onClick={() => fetchBusinesses(bbox, true)}
+                  >
+                    {loading ? "Indlæser…" : "Indlæs flere virksomheder"}
+                  </button>
+                )}
+              </div>
               {dataWarning && (
                 <div className="inline-warning data-warning">
                   <Info size={16} />
@@ -966,7 +1130,9 @@ export default function HuntApp() {
                   {overview
                     ? "Oversigten viser importerede virksomheder. Flere områder kan tilføjes uden at ændre kortet."
                     : "Viser importerede Overture-virksomheder i kortudsnittet. Første importområde er Nykøbing Falster; dækningen er ufuldstændig."}
-                  {capped ? " Maks. 600 resultater – zoom tættere på." : ""}
+                  {capped
+                    ? " Der findes flere resultater. Indlæs næste side eller zoom tættere på."
+                    : ""}
                 </span>
                 <button onClick={() => setTab("Indstillinger")}>
                   Om data <ArrowUpRight size={12} />
@@ -1076,7 +1242,10 @@ export default function HuntApp() {
                         ...l,
                         business: {
                           ...l.business,
-                          status: overrides[l.business.id] || l.business.status,
+                          ...presentBusiness(
+                            l.business,
+                            overrides[l.business.id],
+                          ),
                         },
                       }}
                       onOpen={() => choose(l.business)}
@@ -1113,7 +1282,13 @@ export default function HuntApp() {
                 />
                 <Metric
                   label="Undersøgte virksomheder"
-                  value={all.length - counts.unknown}
+                  value={
+                    all.filter(
+                      (b) =>
+                        b.statusOrigin === "assessment" &&
+                        b.status !== "unknown",
+                    ).length
+                  }
                   icon={FileSearch}
                 />
               </div>
@@ -1121,7 +1296,7 @@ export default function HuntApp() {
                 <section className="panel">
                   <h3>Hjemmesidernes status</h3>
                   <p className="muted">
-                    Faktiske vurderinger i dit indlæste datasæt
+                    Registreringer og vurderinger i de indlæste opslag
                   </p>
                   <div className="status-chart">
                     {(Object.keys(statuses) as Status[]).map((s) => (
@@ -1400,6 +1575,23 @@ export default function HuntApp() {
                 <span className="category-tag">{current.category}</span>
                 <h2>{current.name}</h2>
                 <StatusBadge status={current.status} />
+                {evidence && (
+                  <section
+                    className="status-evidence"
+                    aria-label="Begrundelse for hjemmesidestatus"
+                  >
+                    <strong>{evidence.kind}</strong>
+                    <p>{evidence.reason}</p>
+                    <small>{evidence.confidence}</small>
+                    {evidence.checkedAt && (
+                      <small>
+                        Seneste kontrol:{" "}
+                        {new Date(evidence.checkedAt).toLocaleString("da-DK")}
+                      </small>
+                    )}
+                  </section>
+                )}
+                {current.cvr && <p className="micro">CVR: {current.cvr}</p>}
                 <div className="contact-details">
                   <div>
                     <MapPin size={17} />
@@ -1438,6 +1630,24 @@ export default function HuntApp() {
                     )}
                   </div>
                 </div>
+                {!!current.socialProfiles?.length && (
+                  <div
+                    className="social-profiles"
+                    aria-label="Registrerede sociale profiler"
+                  >
+                    {current.socialProfiles.map((url) => (
+                      <a
+                        key={url}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {new URL(url).hostname}
+                        <ExternalLink size={12} />
+                      </a>
+                    ))}
+                  </div>
+                )}
                 <div className="drawer-actions">
                   {current.website && (
                     <a
@@ -1582,8 +1792,9 @@ export default function HuntApp() {
                     ))}
                   </select>
                   <p className="micro">
-                    Manuelle vurderinger er dine egne. Rød betyder sandsynligvis
-                    ingen hjemmeside, aldrig blot manglende data.
+                    Manuelle vurderinger er dine egne og bevares. Rød betyder
+                    ingen registreret selvstændig hjemmeside. Grå betyder ikke
+                    kontrolleret eller usikker.
                   </p>
                 </div>
                 <a

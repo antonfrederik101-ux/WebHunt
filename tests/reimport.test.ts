@@ -99,6 +99,26 @@ test("cached pilot reimport accepts official source IDs without fetching and ret
     const failed = run();
     assert.equal(failed.status, 1);
     assert.match(failed.stderr, /unknown_license/);
+    writeFileSync(
+      path.join(
+        directory,
+        ".data/imports/nykoebing-falster-2026-09-23.3.geojson",
+      ),
+      "null",
+    );
+    const malformed = run();
+    assert.equal(malformed.status, 1);
+    assert.match(malformed.stderr, /FeatureCollection/);
+    assert.doesNotMatch(malformed.stderr, /Cannot read properties/);
+    assert.deepEqual(
+      JSON.parse(
+        readFileSync(
+          path.join(directory, "data/overture/nykoebing-falster.json"),
+          "utf8",
+        ),
+      ),
+      seed,
+    );
     const db = new BusinessCatalog(database);
     try {
       assert.equal(db.get(null).businesses.length, 1);

@@ -1,3 +1,4 @@
+import { normalizedPublicUrl } from "./websites";
 import { dataLicenseTexts } from "./data-licenses";
 import { Business, categories, statuses } from "./types";
 export type OSMElement = {
@@ -9,17 +10,7 @@ export type OSMElement = {
   tags?: Record<string, string>;
 };
 export function safeWebsite(value: string): string {
-  try {
-    const u = new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`);
-    return ["http:", "https:"].includes(u.protocol) &&
-      !u.username &&
-      !u.password &&
-      u.hostname.includes(".")
-      ? u.href
-      : "";
-  } catch {
-    return "";
-  }
+  return normalizedPublicUrl(value);
 }
 export function toBusiness(e: OSMElement): Business | null {
   const t = e.tags || {};

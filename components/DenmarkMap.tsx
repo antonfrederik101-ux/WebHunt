@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type L from "leaflet";
 import type { GeoJsonObject } from "geojson";
 import { mapProvider } from "@/lib/map-provider";
-import { Business, statuses } from "@/lib/types";
+import { Business, statuses, type Status } from "@/lib/types";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
@@ -233,17 +233,55 @@ export default function DenmarkMap(props: Props) {
           showCoverageOnHover: false,
           maxClusterRadius: 42,
           disableClusteringAtZoom: 17,
-          iconCreateFunction: (c) =>
-            lib.divIcon({
+          iconCreateFunction: (c) => {
+            const counts: Record<Status, number> = {
+              missing: 0,
+              improve: 0,
+              good: 0,
+              unknown: 0,
+            };
+            for (const marker of c.getAllChildMarkers()) {
+              counts[
+                (marker as L.Marker & { businessStatus: Status })
+                  .businessStatus || "unknown"
+              ]++;
+            }
+            const total = c.getChildCount();
+            let angle = 0;
+            const stops = (Object.keys(counts) as Status[])
+              .filter((status) => counts[status])
+              .map((status) => {
+                const start = angle;
+                angle += (counts[status] / total) * 360;
+                return `${statuses[status].color} ${start}deg ${angle}deg`;
+              });
+            const ring = document.createElement("span");
+            ring.className = "cluster-ring";
+            ring.style.background = `conic-gradient(${stops.join(",")})`;
+            const label =
+              `${total} virksomheder. ` +
+              (Object.keys(counts) as Status[])
+                .filter((status) => counts[status])
+                .map((status) => `${statuses[status].label}: ${counts[status]}`)
+                .join(". ");
+            ring.title = label;
+            ring.setAttribute("aria-label", label);
+            const count = document.createElement("b");
+            count.textContent = String(total);
+            ring.append(count);
+            return lib.divIcon({
               className: "hunt-cluster",
-              html: `<span>${c.getChildCount()}</span>`,
-              iconSize: [40, 40],
-            }),
+              html: ring,
+              iconSize: [44, 44],
+            });
+          },
         })
         .addTo(m);
       const report = () => {
+        if (dead) return;
         clearTimeout(timer);
         timer = setTimeout(() => {
+          if (dead) return;
           const b = m.getBounds();
           const s = Math.max(54.4, b.getSouth()),
             w = Math.max(7.8, b.getWest()),
@@ -251,7 +289,7 @@ export default function DenmarkMap(props: Props) {
             e = Math.min(15.3, b.getEast());
           if (s < n && w < e)
             latest.current.onBounds(
-              [s, w, n, e].map((x) => x.toFixed(3)).join(","),
+              [s, w, n, e].map((x) => x.toFixed(6)).join(","),
               m.getZoom(),
             );
         }, 600);
@@ -274,7 +312,8 @@ export default function DenmarkMap(props: Props) {
       latest.current.onReady();
       setInitialized(true);
       observer = new ResizeObserver(() => {
-        m.invalidateSize();
+        if (dead) return;
+        m.invalidateSize({ animate: false });
         if (latest.current.target.name === "Danmark" && m.getZoom() <= 7) {
           m.fitBounds(
             [
@@ -293,6 +332,7 @@ export default function DenmarkMap(props: Props) {
       for (const url of objectUrls) URL.revokeObjectURL(url);
       clearTimeout(timer);
       observer?.disconnect();
+      map.current?.stop();
       map.current?.remove();
       map.current = null;
     };
@@ -304,7 +344,7 @@ export default function DenmarkMap(props: Props) {
     props.businesses.forEach((b) => {
       const icon = lib.divIcon({
         className: "business-marker",
-        html: `<span style="--marker-color:${statuses[b.status].color}" class="${b.id === props.selected ? "selected" : ""}"></span>`,
+        html: `<span data-status="${b.status}" style="--marker-color:${statuses[b.status].color}" class="${b.id === props.selected ? "selected" : ""}"></span>`,
         iconSize: [22, 22],
         iconAnchor: [11, 11],
       });
@@ -313,6 +353,8 @@ export default function DenmarkMap(props: Props) {
         title: b.name,
         alt: b.name,
       });
+      (marker as L.Marker & { businessStatus: Status }).businessStatus =
+        b.status;
       const tooltip = document.createElement("span");
       tooltip.textContent = b.name;
       marker.bindTooltip(tooltip);

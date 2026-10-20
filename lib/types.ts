@@ -10,7 +10,10 @@ export type Business = {
   category: string;
   phone: string;
   website: string;
+  socialProfiles?: string[];
+  cvr?: string;
   status: Status;
+  statusOrigin?: "registration" | "assessment" | "unchecked";
   sourceUrl: string;
   source?: string;
   sourceId?: string;
@@ -43,13 +46,14 @@ export const statuses: Record<
   { label: string; color: string; description: string }
 > = {
   missing: {
-    label: "Sandsynligvis ingen hjemmeside",
+    label: "Ingen registreret hjemmeside",
     color: "#fb7185",
-    description: "Manuelt vurderet. Manglende OSM-data er ikke dokumentation.",
+    description:
+      "Ingen selvstændig hjemmeside er registreret i de indlæste oplysninger. Det er ikke bevis for, at virksomheden ingen hjemmeside har.",
   },
   improve: {
     label: "Forbedringsmuligheder",
-    color: "#fbbf24",
+    color: "#f59e0b",
     description: "Tekniske forbedringer fundet eller manuelt vurderet.",
   },
   good: {
@@ -70,6 +74,11 @@ export const categories: Record<string, string> = {
   bar: "Bar",
   pub: "Pub",
   hairdresser: "Frisør",
+  hair_salon: "Frisør",
+  beauty_salon: "Skønhed",
+  real_estate_agent: "Ejendomsmægler",
+  auto_repair: "Autoværksted",
+  clothing_store: "Tøjbutik",
   beauty: "Skønhed",
   bakery: "Bager",
   supermarket: "Supermarked",

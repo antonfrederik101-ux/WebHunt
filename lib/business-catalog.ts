@@ -1,3 +1,6 @@
+import { compareReleases } from "./releases";
+import { foldSearch, type CatalogQuery } from "./catalog-query";
+import { presentBusiness } from "./business-status";
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync, existsSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -20,6 +23,11 @@ export type CatalogResult = {
     bounds: number[];
   }[];
   warning?: string;
+  catalogTotal?: number;
+  matchedTotal?: number;
+  categories?: string[];
+  nextOffset?: number | null;
+  revision?: string;
 };
 export class CatalogNotReady extends Error {}
 export class BusinessCatalog {
@@ -31,6 +39,21 @@ export class BusinessCatalog {
     if (filename !== ":memory:")
       mkdirSync(path.dirname(filename), { recursive: true });
     this.db = new DatabaseSync(filename);
+    this.db.function("webhunt_release_compare", (a, b) =>
+      compareReleases(String(a), String(b)),
+    );
+    this.db.function("webhunt_search", (raw) => {
+      const b = presentBusiness(JSON.parse(String(raw)));
+      return foldSearch(
+        [b.name, b.address, b.city, b.postcode, b.category, b.cvr || ""].join(
+          " ",
+        ),
+      );
+    });
+    this.db.function(
+      "webhunt_category",
+      (raw) => presentBusiness(JSON.parse(String(raw))).category,
+    );
     this.db.exec(`
       PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
       CREATE TABLE IF NOT EXISTS catalog_regions (id TEXT PRIMARY KEY, name TEXT NOT NULL, bounds TEXT NOT NULL, release TEXT NOT NULL, imported_at TEXT NOT NULL);
@@ -45,10 +68,17 @@ export class BusinessCatalog {
     const current = this.db
       .prepare("SELECT release FROM catalog_regions WHERE id=?")
       .get(snapshot.region.id);
-    if (current && String(current.release) > snapshot.release)
+    compareReleases(snapshot.release, snapshot.release);
+    if (
+      current &&
+      compareReleases(String(current.release), snapshot.release) > 0
+    )
       throw new Error("En ældre udgivelse må ikke erstatte nyere data.");
     this.db.exec("BEGIN IMMEDIATE");
     try {
+      const previous = this.db
+        .prepare("SELECT business_id FROM catalog_membership WHERE region_id=?")
+        .all(snapshot.region.id);
       this.db
         .prepare(
           `INSERT INTO catalog_regions VALUES (?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,bounds=excluded.bounds,release=excluded.release,imported_at=excluded.imported_at`,
@@ -64,7 +94,7 @@ export class BusinessCatalog {
         .prepare("DELETE FROM catalog_membership WHERE region_id=?")
         .run(snapshot.region.id);
       const place = this.db.prepare(
-        `INSERT INTO catalog_places(business_id,lat,lon,release,record) VALUES (?,?,?,?,?) ON CONFLICT(business_id) DO UPDATE SET lat=excluded.lat,lon=excluded.lon,release=excluded.release,record=excluded.record WHERE excluded.release >= catalog_places.release RETURNING id,lat,lon`,
+        `INSERT INTO catalog_places(business_id,lat,lon,release,record) VALUES (?,?,?,?,?) ON CONFLICT(business_id) DO UPDATE SET lat=excluded.lat,lon=excluded.lon,release=excluded.release,record=excluded.record WHERE webhunt_release_compare(excluded.release, catalog_places.release)>=0 RETURNING id,lat,lon`,
       );
       const spatial = this.db.prepare(
         "INSERT OR REPLACE INTO catalog_spatial VALUES (?,?,?,?,?)",
@@ -89,16 +119,24 @@ export class BusinessCatalog {
         if (p) spatial.run(p.id, p.lon, p.lon, p.lat, p.lat);
         membership.run(snapshot.region.id, b.id);
       }
-      this.db.exec(
-        `DELETE FROM catalog_spatial WHERE id IN (SELECT id FROM catalog_places WHERE business_id NOT IN (SELECT business_id FROM catalog_membership)); DELETE FROM catalog_places WHERE business_id NOT IN (SELECT business_id FROM catalog_membership);`,
+      // Only retire rows belonging to this import; never sweep unrelated records.
+      const retireSpatial = this.db.prepare(
+        "DELETE FROM catalog_spatial WHERE id IN (SELECT p.id FROM catalog_places p WHERE p.business_id=? AND NOT EXISTS (SELECT 1 FROM catalog_membership m WHERE m.business_id=p.business_id))",
       );
+      const retirePlace = this.db.prepare(
+        "DELETE FROM catalog_places WHERE business_id=? AND NOT EXISTS (SELECT 1 FROM catalog_membership m WHERE m.business_id=catalog_places.business_id)",
+      );
+      for (const previousRecord of previous) {
+        retireSpatial.run(previousRecord.business_id);
+        retirePlace.run(previousRecord.business_id);
+      }
       this.db.exec("COMMIT");
     } catch (e) {
       this.db.exec("ROLLBACK");
       throw e;
     }
   }
-  get(bounds: number[] | null): CatalogResult {
+  get(bounds: number[] | null, options: CatalogQuery = {}): CatalogResult {
     const regions = this.db
       .prepare("SELECT * FROM catalog_regions ORDER BY id")
       .all()
@@ -113,29 +151,54 @@ export class BusinessCatalog {
       throw new CatalogNotReady(
         "Virksomhedsdatabasen er endnu ikke importeret. Kortet virker; der foretages ingen Overpass-forespørgsler.",
       );
-    const rows = bounds
-      ? this.db
-          .prepare(
-            `SELECT p.record FROM catalog_spatial s JOIN catalog_places p ON p.id=s.id WHERE s.max_lat>=? AND s.min_lon<=? AND s.min_lat<=? AND s.max_lon>=? AND p.lat>=? AND p.lon<=? AND p.lat<=? AND p.lon>=? ORDER BY p.business_id LIMIT 601`,
-          )
-          .all(
-            bounds[0],
-            bounds[3],
-            bounds[2],
-            bounds[1],
-            bounds[0],
-            bounds[3],
-            bounds[2],
-            bounds[1],
-          )
-      : this.db
-          .prepare(
-            "SELECT record FROM catalog_places ORDER BY business_id LIMIT 601",
-          )
-          .all();
-    const records = rows
-      .slice(0, 600)
-      .map((r) => JSON.parse(String(r.record)) as CatalogBusiness);
+    const spatial = bounds ? " JOIN catalog_spatial s ON p.id=s.id" : "";
+    const where = bounds
+      ? "s.max_lat>=? AND s.min_lon<=? AND s.min_lat<=? AND s.max_lon>=? AND p.lat>=? AND p.lon<=? AND p.lat<=? AND p.lon>=?"
+      : "1=1";
+    const params = bounds
+      ? [
+          bounds[0],
+          bounds[3],
+          bounds[2],
+          bounds[1],
+          bounds[0],
+          bounds[3],
+          bounds[2],
+          bounds[1],
+        ]
+      : [];
+    const base = `FROM catalog_places p${spatial} WHERE ${where}`;
+    const categoryRows = this.db
+      .prepare(
+        `SELECT DISTINCT webhunt_category(p.record) AS category ${base} ORDER BY category`,
+      )
+      .all(...params);
+    const conditions = [
+      options.query ? "instr(webhunt_search(p.record), ?) > 0" : "",
+      options.category ? "webhunt_category(p.record)=?" : "",
+    ].filter(Boolean);
+    const filtered =
+      base + conditions.map((condition) => ` AND ${condition}`).join("");
+    const values: (string | number)[] = [...params];
+    if (options.query) values.push(foldSearch(options.query));
+    if (options.category) values.push(options.category);
+    const offset = options.offset || 0;
+    if (!Number.isSafeInteger(offset) || offset < 0 || offset > 500000)
+      throw new Error("Ugyldig side.");
+    const catalogTotal = Number(
+      this.db.prepare("SELECT count(*) AS n FROM catalog_places").get()!.n,
+    );
+    const matchedTotal = Number(
+      this.db.prepare(`SELECT count(*) AS n ${filtered}`).get(...values)!.n,
+    );
+    const rows = this.db
+      .prepare(
+        `SELECT p.record ${filtered} ORDER BY p.business_id LIMIT 600 OFFSET ?`,
+      )
+      .all(...values, offset);
+    const records = rows.map(
+      (r) => JSON.parse(String(r.record)) as CatalogBusiness,
+    );
     const oldest = regions.reduce((a, b) =>
       a.importedAt < b.importedAt ? a : b,
     ).importedAt;
@@ -165,7 +228,15 @@ export class BusinessCatalog {
       partial: !covered,
       overview:
         !bounds || (bounds[2] - bounds[0]) * (bounds[3] - bounds[1]) > 0.6,
-      limited: rows.length > 600,
+      limited: offset + records.length < matchedTotal,
+      catalogTotal,
+      matchedTotal,
+      categories: categoryRows.map((r) => String(r.category)),
+      nextOffset:
+        offset + records.length < matchedTotal ? offset + records.length : null,
+      revision: regions
+        .map((r) => `${r.id}:${r.release}:${r.importedAt}`)
+        .join("|"),
       source: "Overture Maps · egen database",
       fetchedAt: oldest,
       regions,
@@ -205,12 +276,9 @@ export function getCatalog() {
             "SELECT release, imported_at FROM catalog_regions WHERE id=?",
           )
           .get(seed.region.id);
-        if (
-          !current ||
-          (seed.release >= String(current.release) &&
-            seed.importedAt > String(current.imported_at))
-        )
-          db.import(seed);
+        // Packaged startup data may initialize an absent region only. Existing
+        // user imports are never replaced just because a seed has a newer timestamp.
+        if (!current) db.import(seed);
       }
       shared.webhuntCatalog = db;
     } catch (e) {

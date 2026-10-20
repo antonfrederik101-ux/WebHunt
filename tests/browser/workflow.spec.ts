@@ -42,6 +42,23 @@ async function fixture(page: import("@playwright/test").Page) {
   await page.goto("/");
   await expect(page.locator(".map-stats")).toContainText("1");
 }
+test("rapid navigation cancels map callbacks and loads businesses without waiting for map startup", async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await fixture(page);
+  for (let i = 0; i < 3; i++) {
+    await page
+      .getByRole("button", { name: "Virksomheder", exact: true })
+      .click();
+    await expect(page.locator(".company-row")).toHaveCount(1);
+    await page.getByRole("button", { name: "Kort", exact: true }).click();
+  }
+  await page.getByRole("button", { name: "Virksomheder", exact: true }).click();
+  await page.waitForTimeout(800); // Delayed map bounds callback must not outlive an unmounted map.
+  expect(errors).toEqual([]);
+});
 test("map → business → status → lead → notes → CSV → persisted reload", async ({
   page,
 }) => {
@@ -91,6 +108,12 @@ test("analysis failures remain unknown and are visible", async ({ page }) => {
     "PageSpeed",
   );
   await expect(page.getByLabel("DIN VURDERING")).toHaveValue("unknown");
+  await page.getByLabel("DIN VURDERING").selectOption("improve");
+  await page.getByRole("button", { name: "Analysér hjemmeside" }).click();
+  await expect(page.locator(".business-drawer [role=alert]")).toContainText(
+    "PageSpeed",
+  );
+  await expect(page.getByLabel("DIN VURDERING")).toHaveValue("improve");
 });
 test("mobile navigation, filters and honest missing configuration", async ({
   page,
@@ -261,7 +284,9 @@ test("local Denmark map renders without any third-party tile provider when no ke
       forbidden.push(new URL(r.url()).hostname);
   });
   await fixture(page);
-  await page.getByRole("button", { name: "Vis hele Danmark", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Vis hele Danmark", exact: true })
+    .click();
   await expect(
     page.locator(".leaflet-country-context-pane path").first(),
   ).toBeVisible();

@@ -1,3 +1,4 @@
+import { parseCatalogQuery } from "@/lib/catalog-query";
 import { dataLicenseTexts } from "@/lib/data-licenses";
 import { NextRequest, NextResponse } from "next/server";
 import { parseBounds } from "@/lib/businesses";
@@ -10,13 +11,15 @@ export async function GET(req: NextRequest) {
   const limited = rateLimit(req, "businesses", 24);
   if (limited) return limited;
   let bounds: number[] | null;
+  let options;
   try {
     bounds = parseBounds(req.nextUrl.searchParams.get("bbox"));
+    options = parseCatalogQuery(req.nextUrl.searchParams);
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 400 });
   }
   try {
-    const result = await catalogBusinesses(bounds);
+    const result = await catalogBusinesses(bounds, options);
     return NextResponse.json(
       { ...result, licenseTexts: dataLicenseTexts },
       {

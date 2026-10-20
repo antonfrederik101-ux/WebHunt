@@ -1,4 +1,4 @@
-import { safeWebsite } from "./businesses";
+import { websiteDetails } from "./websites";
 import { categories, type Business } from "./types";
 
 export const OVERTURE_LICENSES = {
@@ -33,6 +33,7 @@ export type PlaceFeature = {
       country?: string;
     }[];
     websites?: string[];
+    socials?: string[];
     phones?: string[];
     operating_status?: string;
     confidence?: number;
@@ -98,7 +99,11 @@ const publishedLicenses = new Set<string>([
   OVERTURE_LICENSES.cc0,
 ]);
 function sourceLabel(source: PlaceSources[number]) {
-  return source.dataset || source.provider || "";
+  return typeof source.dataset === "string" && source.dataset
+    ? source.dataset
+    : typeof source.provider === "string"
+      ? source.provider
+      : "";
 }
 /** Resolve the whole record's provenance, including Overture's processing entries.
  * Overture Places is licensed per contributor, not by assigning a blanket license
@@ -106,6 +111,11 @@ function sourceLabel(source: PlaceSources[number]) {
  * See the official Places sources/licensing guide and sourcePropertyItem schema.
  */
 export function placeSourcePolicy(sources: PlaceSources) {
+  if (
+    !Array.isArray(sources) ||
+    sources.some((source) => !source || typeof source !== "object")
+  )
+    return { datasets: [], licenses: [], unresolved: ["invalid_sources"] };
   const datasets = [...new Set(sources.map(sourceLabel).filter(Boolean))];
   const original = sources.filter((s) => sourceLabel(s) !== "Overture");
   const inherited = [
@@ -156,11 +166,11 @@ export function normalizePlace(
   const p = feature.properties,
     coordinates = feature.geometry?.coordinates;
   const id = feature.id || p?.id,
-    name = p?.names?.primary?.trim();
-  if (!id || !name) return reject("missing_identity");
+    name = typeof p?.names?.primary === "string" ? p.names.primary.trim() : "";
+  if (typeof id !== "string" || !id || !name) return reject("missing_identity");
   if (
     feature.geometry?.type !== "Point" ||
-    !coordinates ||
+    !Array.isArray(coordinates) ||
     coordinates.length < 2
   )
     return reject("invalid_point");
@@ -176,7 +186,9 @@ export function normalizePlace(
   )
     return reject("outside_region");
   if (p?.operating_status === "permanently_closed") return reject("closed");
-  const addresses = p?.addresses || [];
+  const addresses = Array.isArray(p?.addresses)
+    ? p.addresses.filter((a) => a && typeof a === "object")
+    : [];
   const address = addresses.find((a) => a.country === "DK") || addresses[0];
   // In the small pilot there is no foreign territory. National imports require explicit country=DK.
   if (address?.country && address.country !== "DK")
@@ -185,8 +197,10 @@ export function normalizePlace(
     return reject("missing_danish_country");
   const kind =
     p?.basic_category || p?.taxonomy?.primary || p?.categories?.primary;
-  if (!kind) return reject("missing_category");
-  const hierarchy = p?.taxonomy?.hierarchy || [];
+  if (typeof kind !== "string" || !kind) return reject("missing_category");
+  const hierarchy = Array.isArray(p?.taxonomy?.hierarchy)
+    ? p.taxonomy.hierarchy
+    : [];
   // Places includes mountains, schools and landmarks; those are not business prospects.
   if (
     /^(natural|community_and_government|education|cultural_and_historic)/.test(
@@ -200,7 +214,7 @@ export function normalizePlace(
     )
   )
     return reject("non_business");
-  const sources = p?.sources || [];
+  const sources = Array.isArray(p?.sources) ? p.sources : [];
   const policy = placeSourcePolicy(sources);
   const { datasets, licenses } = policy;
   if (!datasets.length) return reject("missing_source");
@@ -212,12 +226,19 @@ export function normalizePlace(
     name,
     lat,
     lon,
-    address: address?.freeform || "Adresse ikke registreret",
-    city: address?.locality || "",
-    postcode: address?.postcode || "",
+    address:
+      typeof address?.freeform === "string" && address.freeform.trim()
+        ? address.freeform.trim()
+        : "Adresse ikke registreret",
+    city: typeof address?.locality === "string" ? address.locality.trim() : "",
+    postcode:
+      typeof address?.postcode === "string" ? address.postcode.trim() : "",
     category: categories[kind] || kind.replaceAll("_", " "),
-    phone: p?.phones?.[0] || "",
-    website: safeWebsite(p?.websites?.[0] || ""),
+    phone:
+      Array.isArray(p?.phones) && typeof p.phones[0] === "string"
+        ? p.phones[0]
+        : "",
+    ...websiteDetails(p?.websites, p?.socials),
     status: "unknown",
     source: "Overture Maps",
     sourceDatasets: datasets,
@@ -244,7 +265,13 @@ export function prepareSnapshot(
   const rejectionReasons: Record<string, number> = {};
   const unknownDatasets: Record<string, number> = Object.create(null);
   for (const feature of features) {
-    for (const dataset of placeSourcePolicy(feature.properties?.sources || [])
+    if (!feature || typeof feature !== "object") {
+      rejected++;
+      rejectionReasons.invalid_feature =
+        (rejectionReasons.invalid_feature || 0) + 1;
+      continue;
+    }
+    for (const dataset of placeSourcePolicy(feature?.properties?.sources || [])
       .unresolved) {
       unknownDatasets[dataset] = (unknownDatasets[dataset] || 0) + 1;
     }
@@ -261,14 +288,19 @@ export function prepareSnapshot(
           input: features.length,
           rejectionReasons,
           unknownDatasets,
-          sourceSamples: features.slice(0, 2).map((f) =>
-            (f.properties?.sources || []).map((source) => ({
-              dataset: source.dataset,
-              provider: source.provider,
-              property: source.property,
-              license: source.license,
-            })),
-          ),
+          sourceSamples: features
+            .filter((f) => f && typeof f === "object")
+            .slice(0, 2)
+            .map((f) =>
+              (Array.isArray(f.properties?.sources) ? f.properties.sources : [])
+                .filter(Boolean)
+                .map((source) => ({
+                  dataset: source.dataset,
+                  provider: source.provider,
+                  property: source.property,
+                  license: source.license,
+                })),
+            ),
         }),
     );
   return {
