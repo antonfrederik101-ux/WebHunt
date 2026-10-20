@@ -194,3 +194,69 @@ test("source alias support still rejects undocumented and restricted dataset IDs
     );
   }
 });
+
+test("Overture processing provenance keeps the contributing provider licenses and every source entry", () => {
+  const f = feature();
+  f.properties!.sources = [
+    {
+      dataset: "Overture",
+      property: "/properties/taxonomy",
+      record_id: "processing-fixture",
+    },
+    { dataset: "metaPlaces", property: "", record_id: "original-fixture" },
+  ];
+  const snapshot = prepareSnapshot([f], PILOT, "2026-09-23.1");
+  assert.equal(snapshot.records.length, 1);
+  assert.deepEqual(snapshot.records[0].licenses, ["CDLA-Permissive-2.0"]);
+  assert.deepEqual(snapshot.records[0].sourceDatasets, [
+    "Overture",
+    "metaPlaces",
+  ]);
+  assert.deepEqual(snapshot.records[0].sourceDetails, f.properties!.sources);
+  f.properties!.sources[1].dataset = "AllThePlaces";
+  assert.deepEqual(
+    prepareSnapshot([f], PILOT, "2026-09-23.1").records[0].licenses,
+    ["CC0-1.0"],
+  );
+});
+test("Overture does not hide unknown or restricted contributors, and unsupported declared licenses remain rejected", () => {
+  for (const source of [
+    { dataset: "Foursquare" },
+    { dataset: "UnknownRestrictedProvider" },
+    { dataset: "Overture", license: "Unknown-License" },
+    { dataset: "metaPlaces", license: "Apache-2.0" },
+  ]) {
+    const f = feature();
+    f.properties!.sources = [
+      { dataset: "Overture" },
+      { dataset: "metaPlaces" },
+      source,
+    ];
+    assert.throws(
+      () => prepareSnapshot([f], PILOT, "2026-09-23.1"),
+      /unknown_license/,
+    );
+  }
+});
+test("explicit supported publisher licenses and the documented provider field preserve provenance", () => {
+  const f = feature();
+  f.properties!.sources = [
+    { dataset: "Overture", license: "CDLA-Permissive-2.0" },
+  ];
+  assert.deepEqual(
+    prepareSnapshot([f], PILOT, "2026-09-23.1").records[0].licenses,
+    ["CDLA-Permissive-2.0"],
+  );
+  f.properties!.sources = [
+    {
+      provider: "Meta",
+      resource: "places",
+      version: "2026-09",
+      license: "CDLA-Permissive-2.0",
+    },
+    { dataset: "Overture" },
+  ];
+  const b = prepareSnapshot([f], PILOT, "2026-09-23.1").records[0];
+  assert.deepEqual(b.sourceDetails, f.properties!.sources);
+  assert.deepEqual(b.sourceDatasets, ["Meta", "Overture"]);
+});

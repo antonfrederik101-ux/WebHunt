@@ -41,6 +41,10 @@ export type PlaceFeature = {
       record_id?: string;
       update_time?: string;
       property?: string;
+      provider?: string;
+      resource?: string;
+      version?: string;
+      license?: string;
     }[];
   };
 };
@@ -86,6 +90,58 @@ export function sourceLicense(dataset: string): string | null {
     return OVERTURE_LICENSES.cdla;
   return null;
 }
+type PlaceSources = NonNullable<
+  NonNullable<PlaceFeature["properties"]>["sources"]
+>;
+const publishedLicenses = new Set<string>([
+  OVERTURE_LICENSES.cdla,
+  OVERTURE_LICENSES.cc0,
+]);
+function sourceLabel(source: PlaceSources[number]) {
+  return source.dataset || source.provider || "";
+}
+/** Resolve the whole record's provenance, including Overture's processing entries.
+ * Overture Places is licensed per contributor, not by assigning a blanket license
+ * to the publisher label. Every unknown/restricted contributor still blocks import.
+ * See the official Places sources/licensing guide and sourcePropertyItem schema.
+ */
+export function placeSourcePolicy(sources: PlaceSources) {
+  const datasets = [...new Set(sources.map(sourceLabel).filter(Boolean))];
+  const original = sources.filter((s) => sourceLabel(s) !== "Overture");
+  const inherited = [
+    ...new Set(
+      original
+        .map((s) => sourceLicense(sourceLabel(s)))
+        .filter((v): v is string => !!v),
+    ),
+  ];
+  const licenses = new Set<string>();
+  const unresolved = new Set<string>();
+  for (const source of sources) {
+    const label = sourceLabel(source);
+    if (!label) {
+      unresolved.add("missing_source_identity");
+      continue;
+    }
+    if (label === "Overture") {
+      // A declared supported license is evidence; an unlicensed publisher label
+      // alone is insufficient. Retain the original contributing licenses otherwise.
+      if (source.license) {
+        if (publishedLicenses.has(source.license)) licenses.add(source.license);
+        else unresolved.add(label);
+      } else if (inherited.length) {
+        for (const license of inherited) licenses.add(license);
+      } else unresolved.add(label);
+      continue;
+    }
+    const license = sourceLicense(label);
+    if (!license || (source.license && source.license !== license))
+      unresolved.add(label);
+    else licenses.add(license);
+  }
+  return { datasets, licenses: [...licenses], unresolved: [...unresolved] };
+}
+
 export function normalizePlace(
   feature: PlaceFeature,
   region: Region,
@@ -145,15 +201,11 @@ export function normalizePlace(
   )
     return reject("non_business");
   const sources = p?.sources || [];
-  const datasets = [
-    ...new Set(sources.map((v) => v.dataset || "").filter(Boolean)),
-  ];
-  const licenses = [
-    ...new Set(datasets.map(sourceLicense).filter((v): v is string => !!v)),
-  ];
-  // Do not redistribute new/unknown providers under an assumed license.
+  const policy = placeSourcePolicy(sources);
+  const { datasets, licenses } = policy;
   if (!datasets.length) return reject("missing_source");
-  if (datasets.some((d) => !sourceLicense(d))) return reject("unknown_license");
+  if (policy.unresolved.length || !licenses.length)
+    return reject("unknown_license");
   return {
     id: `overture/${id}`,
     sourceId: id,
@@ -192,10 +244,9 @@ export function prepareSnapshot(
   const rejectionReasons: Record<string, number> = {};
   const unknownDatasets: Record<string, number> = Object.create(null);
   for (const feature of features) {
-    for (const source of feature.properties?.sources || []) {
-      if (source.dataset && !sourceLicense(source.dataset))
-        unknownDatasets[source.dataset] =
-          (unknownDatasets[source.dataset] || 0) + 1;
+    for (const dataset of placeSourcePolicy(feature.properties?.sources || [])
+      .unresolved) {
+      unknownDatasets[dataset] = (unknownDatasets[dataset] || 0) + 1;
     }
     const b = normalizePlace(feature, region, release, importedAt, (reason) => {
       rejectionReasons[reason] = (rejectionReasons[reason] || 0) + 1;
@@ -210,6 +261,14 @@ export function prepareSnapshot(
           input: features.length,
           rejectionReasons,
           unknownDatasets,
+          sourceSamples: features.slice(0, 2).map((f) =>
+            (f.properties?.sources || []).map((source) => ({
+              dataset: source.dataset,
+              provider: source.provider,
+              property: source.property,
+              license: source.license,
+            })),
+          ),
         }),
     );
   return {

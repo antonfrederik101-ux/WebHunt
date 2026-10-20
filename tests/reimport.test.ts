@@ -40,6 +40,11 @@ test("cached pilot reimport accepts official source IDs without fetching and ret
         names: { primary: "Isoleret testpost — ikke produktionsdata" },
         basic_category: "bakery",
         sources: [
+          {
+            dataset: "Overture",
+            property: "/properties/taxonomy",
+            record_id: "processing-fixture",
+          },
           { dataset: "metaPlaces", property: "", record_id: "test-source" },
           {
             dataset: "msftPlaces",
@@ -77,6 +82,7 @@ test("cached pilot reimport accepts official source IDs without fetching and ret
       ),
     );
     assert.deepEqual(seed.records[0].sourceDatasets, [
+      "Overture",
       "metaPlaces",
       "msftPlaces",
     ]);

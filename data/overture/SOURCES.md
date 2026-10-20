@@ -22,3 +22,11 @@ Meta and Microsoft respectively, both under the existing CDLA-Permissive-2.0 pol
 Original identifiers and source records are retained. Evidence: OvertureMaps/schema
 commit b53004401617a0709cd2ee3b872bb3672819078e, examples/places/place.yaml.
 No blanket license is assigned to unknown dataset identifiers.
+
+`Overture` processing/publication source entries are resolved in the context of
+all contributors on the same Places record. The publisher label alone does not
+receive a default license: an explicit supported source license or documented,
+recognized contributor provenance is required. All contributing licenses and all
+original source entries are retained; unknown or restricted contributors still
+exclude the complete record. New source fields provider/resource/version/license
+are preserved, and provider identifies a source when the old dataset field is absent.

@@ -81,3 +81,11 @@ Codespaces-opstartsscriptet blev faktisk kørt efter at have stoppet vores egen 
 - Failed empty imports now report reason counts and unknown dataset identifiers. Successful snapshots retain rejection counts; failed imports still preserve existing data. Python no longer prints an unhelpful CalledProcessError traceback after a normalization failure.
 - Added network-free cached pilot reimport and end-to-end isolated regression test: cached source-ID records → CLI → spatial database → verified count. Unknown-provider input fails and preserves the previous DB and raw file.
 - 28 Node tests passed. Production build/typecheck passed. Actual corrected import count and real map markers in the user's Codespace remain to be confirmed by running the cached reimport there. No downloaded real records or fake production records have been inserted in this Codex instance.
+
+
+## Publisher provenance correction — 2026-10-20
+
+- The user's actual retry reports 1,745 inputs, with rejections unknown_license=1,488, non_business=158, closed=76, missing_category=23. The previous diagnostic counted publisher dataset `Overture` on all 1,745 records as unknown, and Foursquare on 51. This is a provenance-resolution error, not a network failure.
+- Source policy now considers the full record. Overture processing entries retain licenses of documented recognized contributors, or an explicit supported publisher license. An unlicensed publisher label alone remains rejected. Unknown/restricted contributors (including Foursquare pending NOTICE review) and conflicting license declarations still reject the complete record. Raw dataset/provider identifiers and original provenance are preserved.
+- Added coverage of publisher+Meta/Microsoft, publisher+CC0 source, explicit source licensing, modern provider fields, and combinations with restricted/unknown contributors. Cached CLI integration now includes the publisher entry and proves import, source preservation and rollback on a bad newer file. 31 Node tests and typecheck passed.
+- The corrected result for the actual 1,745-row file cannot be observed in this Codex environment; the raw file is in the user's Codespace. A cached reimport there remains the next required verification. No real-company count is fabricated.
