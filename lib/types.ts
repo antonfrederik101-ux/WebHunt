@@ -1,3 +1,4 @@
+import type { Verification } from "./verification-types";
 export type Status = "unknown" | "missing" | "improve" | "good";
 export type Business = {
   id: string;
@@ -12,6 +13,8 @@ export type Business = {
   website: string;
   socialProfiles?: string[];
   cvr?: string;
+  operatingStatus?: string;
+  verification?: Verification;
   status: Status;
   statusOrigin?: "registration" | "assessment" | "unchecked";
   sourceUrl: string;
@@ -23,7 +26,11 @@ export type Business = {
   importedAt?: string;
 };
 export type Analysis = {
-  score: number;
+  score: number | null;
+  model?: string;
+  bestPractices?: number | null;
+  mobile?: boolean | null;
+  coverage?: string[];
   performance: number | null;
   seo: number | null;
   accessibility: number | null;

@@ -1,77 +1,105 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rateLimit } from "@/lib/server";
-import { publicWebsite, summarizeLighthouse } from "@/lib/analysis";
-export const maxDuration = 120;
-const cache = new Map<
-  string,
-  { at: number; data: ReturnType<typeof summarizeLighthouse> }
->();
-let activeAnalyses = 0;
+import { publicWebsite } from "@/lib/analysis";
+import { getCatalog } from "@/lib/business-catalog";
+import { inspectWebsite } from "@/lib/website-inspector";
+import { recordHash, defaultIdentity } from "@/lib/verification-store";
+import { websiteDetails } from "@/lib/websites";
+import type { Business } from "@/lib/types";
+export const maxDuration = 180;
+export const runtime = "nodejs";
+let active = 0;
 export async function POST(req: NextRequest) {
-  const limited = rateLimit(req, "analysis", 5, 300_000);
+  const limited = rateLimit(req, "analysis", 5, 300000);
   if (limited) return limited;
-  let url: string | null;
+  let input;
   try {
-    url = publicWebsite((await req.json()).url);
+    const text = await req.text();
+    if (text.length > 5000) throw new Error();
+    input = JSON.parse(text);
   } catch {
     return NextResponse.json(
       { error: "Ugyldig forespørgsel." },
       { status: 400 },
     );
   }
+  const url = publicWebsite(input?.url);
   if (!url)
     return NextResponse.json(
       { error: "En offentlig HTTP- eller HTTPS-hjemmeside er påkrævet." },
       { status: 400 },
     );
-  const hit = cache.get(url);
-  if (hit && Date.now() - hit.at < 86_400_000)
-    return NextResponse.json(hit.data);
-  if (activeAnalyses >= 2)
+  if (active >= 2)
     return NextResponse.json(
-      { error: "To analyser kører allerede. Prøv igen om lidt." },
+      { error: "To kontroller kører allerede. Prøv igen senere." },
       { status: 503, headers: { "Retry-After": "30" } },
     );
-  activeAnalyses++;
+  active++;
   try {
-    const target = new URL(
-      "https://www.googleapis.com/pagespeedonline/v5/runPagespeed",
-    );
-    target.searchParams.set("url", url);
-    target.searchParams.set("strategy", "mobile");
-    for (const c of ["performance", "seo", "accessibility"])
-      target.searchParams.append("category", c);
-    if (process.env.PAGESPEED_API_KEY)
-      target.searchParams.set("key", process.env.PAGESPEED_API_KEY);
-    const response = await fetch(target, {
-      signal: AbortSignal.timeout(100_000),
-    });
-    if (!response.ok)
+    const catalog = getCatalog(),
+      store = catalog.verification;
+    const check = await inspectWebsite(url, store);
+    // Anonymous callers may add measured facts only for the actual registered URL;
+    // they cannot assert activity, change a URL or overwrite personal assessments.
+    if (typeof input.businessId === "string") {
+      const row = catalog.db
+        .prepare("SELECT record FROM catalog_places WHERE business_id=?")
+        .get(input.businessId);
+      if (row) {
+        const b = JSON.parse(String(row.record)) as Business,
+          previous = store.get(b);
+        if (
+          websiteDetails(b.website).website === url ||
+          previous?.website?.url === url
+        )
+          store.save(b, {
+            ...previous,
+            recordHash: recordHash(b),
+            identity: previous?.identity || defaultIdentity(b),
+            website: check,
+            lastAttemptAt: previous?.lastAttemptAt || check.checkedAt,
+          });
+      }
+    }
+    if (
+      !check.analysis ||
+      check.analysis.score === null ||
+      check.state !== "checked"
+    )
       return NextResponse.json(
+        { error: check.reason, check },
         {
-          error:
-            response.status === 429
-              ? "Google PageSpeed-kvoten er opbrugt. Tilføj en servernøgle eller prøv igen senere. Status er ikke undersøgt."
-              : "PageSpeed kunne ikke analysere hjemmesiden. Kontrollér adressen eller prøv igen senere. Status er ikke undersøgt.",
+          status: check.state === "deferred" ? 429 : 502,
+          headers: {
+            "Cache-Control": "no-store",
+            ...(check.retryAt
+              ? {
+                  "Retry-After": String(
+                    Math.max(
+                      1,
+                      Math.ceil(
+                        (Date.parse(check.retryAt) - Date.now()) / 1000,
+                      ),
+                    ),
+                  ),
+                }
+              : {}),
+          },
         },
-        { status: 502 },
       );
-    const body = await response.json();
-    if (!body.lighthouseResult || body.lighthouseResult.runtimeError)
-      throw new Error();
-    const data = summarizeLighthouse(body.lighthouseResult, url);
-    if (cache.size > 500) cache.clear();
-    cache.set(url, { at: Date.now(), data });
-    return NextResponse.json(data);
+    return NextResponse.json(
+      { ...check.analysis, check },
+      { headers: { "Cache-Control": "private, no-store" } },
+    );
   } catch {
     return NextResponse.json(
       {
         error:
-          "Analysen kunne ikke gennemføres. Hjemmesiden er ikke undersøgt. Prøv igen senere.",
+          "Kontrollen kunne ikke gennemføres sikkert. Ingen ny hjemmesideklassificering er gemt.",
       },
       { status: 502 },
     );
   } finally {
-    activeAnalyses--;
+    active--;
   }
 }

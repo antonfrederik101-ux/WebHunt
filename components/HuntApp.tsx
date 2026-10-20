@@ -1,4 +1,5 @@
 "use client";
+import { confirmedActive, activityLabels } from "@/lib/verification-types";
 import dynamic from "next/dynamic";
 import HuntMark from "./HuntMark";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -358,8 +359,15 @@ export default function HuntApp() {
   }, [retrySeconds]);
   const onBounds = useCallback((b: string) => setBbox(b), []);
   const all = useMemo(
-    () => businesses.map((b) => presentBusiness(b, overrides[b.id])),
-    [businesses, overrides],
+    () =>
+      businesses
+        .filter(
+          (b) =>
+            b.verification?.identity.state !== "closed" &&
+            !b.verification?.duplicateOf,
+        )
+        .map((b) => presentBusiness(b, overrides[b.id], analyses[b.id])),
+    [businesses, overrides, analyses],
   );
   const filtered = useMemo(
     () =>
@@ -379,15 +387,21 @@ export default function HuntApp() {
   const counts = useMemo(
     () => ({
       unknown: all.filter((b) => b.status === "unknown").length,
-      missing: all.filter((b) => b.status === "missing").length,
+      missing: all.filter((b) => confirmedActive(b) && b.status === "missing")
+        .length,
       improve: all.filter((b) => b.status === "improve").length,
       good: all.filter((b) => b.status === "good").length,
     }),
     [all],
   );
   const current = selected
-    ? presentBusiness(selected, overrides[selected.id])
+    ? presentBusiness(selected, overrides[selected.id], analyses[selected.id])
     : null;
+  const currentAnalysis = current
+    ? [analyses[current.id], current.verification?.website?.analysis]
+        .filter((a): a is Analysis => !!a)
+        .sort((a, b) => Date.parse(b.checkedAt) - Date.parse(a.checkedAt))[0]
+    : undefined;
   const evidence = selected
     ? statusEvidence(selected, overrides[selected.id], analyses[selected.id])
     : null;
@@ -513,14 +527,14 @@ export default function HuntApp() {
     const next = { ...overrides, [id]: status };
     const nextAnalyses = { ...analyses };
     if (analysis) nextAnalyses[id] = analysis;
-    else delete nextAnalyses[id];
+    // Keep existing measured facts when a personal label is changed.
     if (user && sb) {
       const { error } = await sb.from("business_statuses").upsert(
         {
           user_id: user.id,
           business_id: id,
           status,
-          analysis: analysis || null,
+          analysis: analysis || analyses[id] || null,
         },
         { onConflict: "user_id,business_id" },
       );
@@ -542,9 +556,30 @@ export default function HuntApp() {
       const r = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: b.website }),
+        body: JSON.stringify({ url: b.website, businessId: b.id }),
       });
       const d = await r.json();
+      if (d.check) {
+        const update = (item: Business): Business =>
+          item.id !== b.id
+            ? item
+            : {
+                ...item,
+                verification: {
+                  ...item.verification,
+                  recordHash: item.verification?.recordHash || "",
+                  identity: item.verification?.identity || {
+                    state: "uncertain",
+                    source: "Import",
+                    checkedAt: "",
+                    reason: "Virksomhedsaktivitet er ikke bekræftet.",
+                  },
+                  website: d.check,
+                },
+              };
+        setBusinesses((previous) => previous.map(update));
+        setSelected((previous) => (previous ? update(previous) : previous));
+      }
       if (!r.ok) {
         // An unavailable measurement must not erase an existing personal assessment.
         throw new Error(d.error || "Analysen kunne ikke gennemføres.");
@@ -562,7 +597,11 @@ export default function HuntApp() {
       ...l,
       business: {
         ...l.business,
-        ...presentBusiness(l.business, overrides[l.business.id]),
+        ...presentBusiness(
+          l.business,
+          overrides[l.business.id],
+          analyses[l.business.id],
+        ),
       },
     }));
     const url = URL.createObjectURL(
@@ -848,9 +887,9 @@ export default function HuntApp() {
                   )}
                 </div>
                 <p className="micro status-scope">
-                  Farverne gælder de indlæste opslag. Rød er en
-                  registreringsoplysning, ikke bevis for en manglende
-                  hjemmeside.
+                  Farverne kræver bekræftet virksomhedsaktivitet. Usikre
+                  virksomheder er grå. Rød kræver også en gennemført søgning i
+                  de angivne hjemmesidekilder.
                 </p>
               </div>
               <button
@@ -1245,6 +1284,7 @@ export default function HuntApp() {
                           ...presentBusiness(
                             l.business,
                             overrides[l.business.id],
+                            analyses[l.business.id],
                           ),
                         },
                       }}
@@ -1575,6 +1615,50 @@ export default function HuntApp() {
                 <span className="category-tag">{current.category}</span>
                 <h2>{current.name}</h2>
                 <StatusBadge status={current.status} />
+                <section
+                  className="activity-evidence"
+                  aria-label="Virksomhedsstatus"
+                >
+                  <strong>
+                    {
+                      activityLabels[
+                        current.verification?.identity.state || "uncertain"
+                      ]
+                    }
+                  </strong>
+                  <p>
+                    {current.verification?.identity.reason ||
+                      "Virksomheden er importeret, men dens aktivitet er ikke bekræftet."}
+                  </p>
+                  {current.verification?.identity.sourceUrl && (
+                    <a
+                      href={current.verification.identity.sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Se aktivitetskilden
+                    </a>
+                  )}
+                  {current.verification?.identity.matchedAddress && (
+                    <p>
+                      Kontrolleret adresse:{" "}
+                      {current.verification.identity.matchedAddress}
+                    </p>
+                  )}
+                  {current.verification?.identity.nameChanged && (
+                    <p>
+                      Registreret navn er ændret til{" "}
+                      {current.verification.identity.matchedName}.
+                    </p>
+                  )}
+                  {current.verification?.identity.addressMatch ===
+                    "changed" && (
+                    <p>
+                      Virksomheden kan være flyttet. Den gamle placering er ikke
+                      bekræftet.
+                    </p>
+                  )}
+                </section>
                 {evidence && (
                   <section
                     className="status-evidence"
@@ -1591,7 +1675,11 @@ export default function HuntApp() {
                     )}
                   </section>
                 )}
-                {current.cvr && <p className="micro">CVR: {current.cvr}</p>}
+                {(current.cvr || current.verification?.identity.cvr) && (
+                  <p className="micro">
+                    CVR: {current.cvr || current.verification?.identity.cvr}
+                  </p>
+                )}
                 <div className="contact-details">
                   <div>
                     <MapPin size={17} />
@@ -1691,43 +1779,49 @@ export default function HuntApp() {
                     <h3>Hjemmesideanalyse</h3>
                     <Sparkles size={17} className="mint" />
                   </div>
-                  {analyses[current.id] ? (
+                  {analyses[current.id] ||
+                  current.verification?.website?.analysis ? (
                     <>
                       <div className="score-row">
                         <strong>
-                          {analyses[current.id].score}
+                          {currentAnalysis!.score ?? "—"}
                           <small>/100</small>
                         </strong>
                         <span>
-                          Teknisk score
+                          {currentAnalysis!.model === "webhunt-tech-v2"
+                            ? "Teknisk score"
+                            : "Historisk måling · ældre model"}
                           <br />
-                          <small>Mobil · PageSpeed Insights</small>
+                          <small>Mobil · vægtet Lighthouse-måling</small>
                         </span>
                       </div>
                       <div className="score-categories">
                         <span>
                           Performance{" "}
-                          <b>{analyses[current.id].performance ?? "—"}</b>
+                          <b>{currentAnalysis!.performance ?? "—"}</b>
                         </span>
                         <span>
-                          SEO <b>{analyses[current.id].seo ?? "—"}</b>
+                          SEO <b>{currentAnalysis!.seo ?? "—"}</b>
                         </span>
                         <span>
                           Tilgængelighed{" "}
-                          <b>{analyses[current.id].accessibility ?? "—"}</b>
+                          <b>{currentAnalysis!.accessibility ?? "—"}</b>
                         </span>
                       </div>
                       <ul className="findings">
-                        {analyses[current.id].findings.map((f, i) => (
+                        {currentAnalysis!.findings.map((f, i) => (
                           <li key={i}>{f}</li>
                         ))}
                       </ul>
                       <p className="micro">
                         Analyseret{" "}
-                        {new Date(
-                          analyses[current.id].checkedAt,
-                        ).toLocaleString("da-DK")}
+                        {new Date(currentAnalysis!.checkedAt).toLocaleString(
+                          "da-DK",
+                        )}
                         . Teknisk kvalitet er ikke en designvurdering.
+                        Ufuldstændige målinger giver ingen samlet score.{" "}
+                        {currentAnalysis!.url !== current.website &&
+                          "Denne måling gælder en tidligere webadresse."}
                       </p>
                     </>
                   ) : (
@@ -1752,7 +1846,7 @@ export default function HuntApp() {
                         <Sparkles size={16} />
                       )}{" "}
                       {analyzing
-                        ? "Analyserer · op til 100 sek."
+                        ? "Kontrollerer · kan tage et par minutter"
                         : analyses[current.id]
                           ? "Kør analyse igen"
                           : "Analysér hjemmeside"}
@@ -1771,7 +1865,7 @@ export default function HuntApp() {
                   <select
                     id="manual-status"
                     className="full-select"
-                    value={current.status}
+                    value={overrides[current.id] || current.status}
                     disabled={!storageReady || analyzing}
                     onChange={async (e) => {
                       try {
@@ -1792,9 +1886,9 @@ export default function HuntApp() {
                     ))}
                   </select>
                   <p className="micro">
-                    Manuelle vurderinger er dine egne og bevares. Rød betyder
-                    ingen registreret selvstændig hjemmeside. Grå betyder ikke
-                    kontrolleret eller usikker.
+                    Personlige vurderinger bevares separat. Kortets farver
+                    kræver bekræftet aktivitet og dokumenterede kontroller; en
+                    personlig farve er ikke kildebevis.
                   </p>
                 </div>
                 <a

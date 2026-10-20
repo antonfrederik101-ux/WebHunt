@@ -1,5 +1,15 @@
 # WebHunt — udviklingsstatus, 20. oktober 2026
 
+## Aktuel opgave: troværdige virksomheds- og hjemmesidestatusser
+
+Den [nye brugeropgave](docs/VERIFICATION_REQUEST.md) udvider det tidligere fase 1–2-omfang med validering, hjemmesidekontrol, vedvarende kø og administration. Se [den aktuelle kontrolrapport](docs/VERIFICATION_REPORT.md) for ændringer, tests og begrænsninger. Brugerens beslutning: **ingen eksisterende CVR-login**. Systemet må ikke fremstille ubekræftet aktivitet som aktiv.
+
+Implementeret: separate aktivitetsstatusser, kilde-/kontrolhistorik, arkivering frem for sletning, luknings-/dubletfilter, konservativ kildevurdering, kildebelagt manuelt check uden CVR-login, DNS-/SSRF-/robots-beskyttet kontrol, komplet teknisk score, vedvarende caches, genoptagelige jobs, privat `/admin` og faktiske rapporttal. Import- og læsekontrolscripts er bevaret.
+
+Faktiske Nykøbing-resultater er **endnu ikke opgjort**: databasen er kun i brugerens Codespace. Ingen aktiv-/lukket-tal opfindes. CVR-adapterens live kontrakt, faktisk hjemmesideanalyse via dette miljøs netværk, automatisk national aktivitet, fuld visuel UX-vurdering og stor-skala produktionsdrift er ikke verificeret. Ingen nye byer eller AI-bygger aktiveres.
+
+Nedenstående fasebeskrivelse og tidligere testresultater er historisk baggrund fra forrige levering. Nye regler i kontrolrapporten har forrang, herunder at personlige farver ikke erstatter aktivitetsbevis.
+
 Omfang: **kun fase 1 og fase 2**. [Brugerens fulde masterplan](docs/PROJECT_ROADMAP.md)
 er gemt uændret som langsigtet plan. Fase 3–7 er ikke påbegyndt i denne leverance.
 

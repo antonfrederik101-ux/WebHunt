@@ -87,10 +87,18 @@ test("map → business → status → lead → notes → CSV → persisted reloa
   await expect(page.getByLabel("DINE NOTER")).toHaveValue("Ring næste uge");
   await expect(page.getByLabel("KONTAKTSTATUS")).toHaveValue("Interesseret");
   await expect(page.locator(".lead-card .status-badge")).toContainText(
-    "Forbedringsmuligheder",
+    "Ikke undersøgt",
   );
   await page.getByRole("button", { name: "Statistik", exact: true }).click();
   await expect(page.locator(".metric").nth(2)).toContainText("1");
+  expect(
+    await page.evaluate(
+      () =>
+        JSON.parse(localStorage.getItem("webhunt-guest-statuses") || "{}")[
+          "node/42"
+        ],
+    ),
+  ).toBe("improve");
   expect(errors).toEqual([]);
 });
 test("analysis failures remain unknown and are visible", async ({ page }) => {
@@ -358,5 +366,5 @@ test("light theme keeps readable surfaces, mint actions and status text", async 
   await page.getByLabel("DIN VURDERING").selectOption("improve");
   await expect(
     page.locator(".business-drawer .status-badge").first(),
-  ).toHaveCSS("color", "rgb(145, 98, 11)");
+  ).toHaveCSS("color", "rgb(89, 109, 99)");
 });

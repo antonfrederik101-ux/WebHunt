@@ -13,6 +13,21 @@ const base = {
   status: "unknown",
   source: "Overture Maps",
   sourceUrl: "https://explore.overturemaps.org/",
+  verification: {
+    recordHash: "browser-fixture",
+    identity: {
+      state: "active",
+      source: "Browser testfixture",
+      checkedAt: new Date().toISOString(),
+      reason: "Identitet kontrolleret i en eksplicit testfixture.",
+    },
+    websiteSearch: {
+      complete: true,
+      checkedAt: new Date().toISOString(),
+      sources: ["Fixture"],
+      reason: "Kontrollerede kilder i fixture",
+    },
+  },
   sourceRelease: "2026-09-23.1",
   sourceDatasets: ["metaPlaces"],
   licenses: ["CDLA-Permissive-2.0"],
@@ -31,8 +46,66 @@ const places = [
     name: "Registreret side (test)",
     website: "https://example.com",
   },
-  { ...base, id: "overture/orange", name: "Manuel orange (test)" },
-  { ...base, id: "overture/green", name: "Manuel grøn (test)" },
+  {
+    ...base,
+    id: "overture/orange",
+    name: "Målt orange (test)",
+    website: "https://orange.example/",
+    verification: {
+      ...base.verification,
+      website: {
+        state: "checked",
+        url: "https://orange.example/",
+        checkedAt: new Date().toISOString(),
+        reason: "Kontrollerede testmålinger",
+        issues: [],
+        analysis: {
+          model: "webhunt-tech-v2",
+          score: 40,
+          performance: 20,
+          bestPractices: 50,
+          mobile: true,
+          seo: 80,
+          accessibility: 40,
+          https: true,
+          url: "https://orange.example/",
+          status: "improve",
+          checkedAt: new Date().toISOString(),
+          findings: ["Kontrolleret lav mobilperformance"],
+        },
+      },
+    },
+  },
+  {
+    ...base,
+    id: "overture/green",
+    name: "Målt grøn (test)",
+    website: "https://green.example/",
+    verification: {
+      ...base.verification,
+      website: {
+        state: "checked",
+        url: "https://green.example/",
+        checkedAt: new Date().toISOString(),
+        reason: "Kontrollerede testmålinger",
+        issues: [],
+        analysis: {
+          model: "webhunt-tech-v2",
+          score: 96,
+          performance: 96,
+          bestPractices: 96,
+          mobile: true,
+          seo: 96,
+          accessibility: 96,
+          https: true,
+          url: "https://green.example/",
+          status: "good",
+          checkedAt: new Date().toISOString(),
+          findings: ["Ingen problemer i testmålingerne"],
+        },
+      },
+    },
+  },
 ];
 async function health(page: Page) {
   await page.route("**/api/health", (r) =>
@@ -107,7 +180,7 @@ test("Denmark starts with truthful mixed clusters; social-only evidence, filters
     .filter({ hasText: "Social profil (test)" })
     .click();
   await expect(page.locator(".status-evidence")).toContainText(
-    "kun registreret sociale profiler",
+    "Kun sociale profiler",
   );
   await expect(page.locator(".status-evidence")).toContainText("ikke bevis");
   await expect(page.locator(".social-profiles a")).toHaveAttribute(
@@ -115,7 +188,9 @@ test("Denmark starts with truthful mixed clusters; social-only evidence, filters
     "https://facebook.com/fixture",
   );
   await page.getByLabel("DIN VURDERING").selectOption("unknown");
-  await expect(page.locator(".status-evidence")).toContainText("Din vurdering");
+  await expect(page.locator(".status-evidence")).toContainText(
+    "Aktiv virksomhed",
+  );
   // The init script seeds only absent storage, preserving the edited gray assessment.
   await page.reload();
   await page.getByRole("button", { name: "Virksomheder", exact: true }).click();
@@ -124,7 +199,9 @@ test("Denmark starts with truthful mixed clusters; social-only evidence, filters
     .filter({ hasText: "Social profil (test)" })
     .click();
   await expect(page.getByLabel("DIN VURDERING")).toHaveValue("unknown");
-  await expect(page.locator(".status-evidence")).toContainText("Din vurdering");
+  await expect(page.locator(".status-evidence")).toContainText(
+    "Aktiv virksomhed",
+  );
   await page
     .getByRole("button", { name: "Luk virksomhed", exact: true })
     .click();
@@ -133,7 +210,7 @@ test("Denmark starts with truthful mixed clusters; social-only evidence, filters
     .filter({ hasText: /^Registreret side \(test\)/ })
     .click();
   await expect(page.locator(".status-evidence")).toContainText(
-    "Ikke kontrolleret",
+    "Afventer pålidelig hjemmesidekontrol",
   );
   expect(errors).toEqual([]);
 });

@@ -1,5 +1,10 @@
 # WebHunt — verificeret 20. oktober 2026
 
+## Aktuel datakontrol
+
+Se [kontrolrapporten](docs/VERIFICATION_REPORT.md): 58 Node-tests, vedvarende job/607-posters CLI-test, kildebelagt lukning, uændret rådata, SSRF-/robots-beskyttelse og beskyttet administration. Faktiske Nykøbing-tal er ikke opgjort i Codex, fordi databasen kun findes i brugerens Codespace. Tidligere registreringsbaseret rød erstattes af en konservativ aktivitet-plus-hjemmesidekontrol. Nedenstående tidligere beskrivelser er historik.
+
+
 ## Seneste leverance: kun fase 1 og 2
 
 Se [DEVELOPMENT_PROGRESS.md](DEVELOPMENT_PROGRESS.md) for den aktuelle status,

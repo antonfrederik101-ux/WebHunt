@@ -2557,3 +2557,102 @@ small {
     margin-left: 0;
   }
 }
+
+.activity-evidence {
+  padding: 14px;
+  border: 1px solid #dbe8e1;
+  background: #f7faf8;
+  border-radius: 10px;
+  margin: 14px 0;
+}
+.activity-evidence p {
+  font-size: 12px;
+  line-height: 1.7;
+  color: #526e5e;
+  margin: 8px 0;
+}
+.activity-evidence a {
+  font-size: 12px;
+  color: #237653;
+  text-decoration: underline;
+}
+.admin-page {
+  max-width: 1300px;
+  margin: auto;
+  padding: 28px;
+  color: #294a3a;
+}
+.admin-page header p {
+  max-width: 800px;
+  line-height: 1.7;
+}
+.admin-page .panel {
+  margin: 16px 0;
+  padding: 20px;
+}
+.admin-page input:not([type="checkbox"]),
+.admin-page select,
+.admin-page textarea {
+  background: white;
+  border: 1px solid #dce7e1;
+  padding: 12px;
+  color: #294a3a;
+  border-radius: 8px;
+  width: 100%;
+  min-width: 0;
+}
+.admin-page label {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+.admin-page label:has(input[type="checkbox"]) {
+  display: flex;
+  align-items: start;
+}
+.admin-page .admin-counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+  gap: 12px;
+  margin: 20px 0;
+}
+.admin-counts .panel {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+.admin-counts strong {
+  font-size: 25px;
+}
+.admin-counts span {
+  font-size: 12px;
+}
+.admin-filters {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.admin-filters input {
+  flex: 1;
+}
+.admin-filters select {
+  flex: 1;
+}
+.admin-review {
+  position: relative;
+  max-width: 800px;
+}
+.admin-page code {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .admin-page {
+    padding: 16px;
+  }
+  .admin-page .company-row {
+    flex-wrap: wrap;
+  }
+  .admin-page .admin-filters {
+    display: grid;
+  }
+}

@@ -1,17 +1,50 @@
+import { publicWebsite } from "./analysis";
+import { confirmedActive } from "./verification-types";
 import { websiteDetails } from "./websites";
 import { categories, type Business, type Analysis, type Status } from "./types";
-
-/** Presentation only: never rewrites imported data or a user's saved assessment. */
+export function usableAnalysis(a: Analysis | undefined, url: string) {
+  const at = Date.parse(a?.checkedAt || "");
+  return (
+    a?.model === "webhunt-tech-v2" &&
+    a.score !== null &&
+    Number.isFinite(a.score) &&
+    a.score >= 0 &&
+    a.score <= 100 &&
+    [a.performance, a.accessibility, a.seo, a.bestPractices].every(
+      (v) => typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 100,
+    ) &&
+    typeof a.mobile === "boolean" &&
+    publicWebsite(a.url) === publicWebsite(url) &&
+    Date.now() - at >= 0 &&
+    Date.now() - at < 7 * 86400_000
+  );
+}
+/** A personal saved rating is retained, but cannot certify activity or substitute measurements. */
 export function presentBusiness(
   business: Business,
-  override?: Status,
+  _override?: Status,
+  personalAnalysis?: Analysis,
 ): Business {
-  const links = websiteDetails(business.website, business.socialProfiles);
-  const registered = links.website ? "unknown" : "missing";
-  const existingAssessment =
-    business.statusOrigin === "assessment" ||
-    (!business.statusOrigin && business.status !== "unknown");
-  const assessed = override !== undefined || existingAssessment;
+  const links = websiteDetails(
+    business.verification?.website?.url || business.website,
+    business.socialProfiles,
+  );
+  const v = business.verification;
+  const candidate = usableAnalysis(personalAnalysis, links.website)
+    ? personalAnalysis
+    : v?.website?.analysis;
+  const latestFailure =
+    v?.website &&
+    ["failed", "blocked", "deferred"].includes(v.website.state) &&
+    Date.parse(v.website.checkedAt) >= Date.parse(candidate?.checkedAt || "");
+  const a = latestFailure ? undefined : candidate;
+  let status: Status = "unknown";
+  if (confirmedActive(business) && !v?.duplicateOf) {
+    if (!links.website && v?.websiteSearch?.complete) status = "missing";
+    else if (usableAnalysis(a, links.website) && a) status = a.status;
+    else if (v?.website?.issues.some((x) => x.startsWith("Vedvarende HTTP")))
+      status = "improve";
+  }
   return {
     ...business,
     ...links,
@@ -19,12 +52,13 @@ export function presentBusiness(
       categories[business.category] ||
       categories[business.category.replaceAll(" ", "_")] ||
       business.category,
-    status: override ?? (existingAssessment ? business.status : registered),
-    statusOrigin: assessed
-      ? "assessment"
-      : registered === "missing"
-        ? "registration"
-        : "unchecked",
+    status,
+    statusOrigin:
+      status === "unknown"
+        ? "unchecked"
+        : status === "missing"
+          ? "registration"
+          : "assessment",
   };
 }
 export function statusEvidence(
@@ -32,40 +66,49 @@ export function statusEvidence(
   override?: Status,
   analysis?: Analysis,
 ) {
-  const b = presentBusiness(business, override);
-  if (b.statusOrigin === "assessment") {
-    if (analysis && analysis.status === b.status)
-      return {
-        kind: "Teknisk måling",
-        reason: `Teknisk score ${analysis.score}/100. ${analysis.findings.join(" ")}`,
-        checkedAt: analysis.checkedAt,
-        confidence:
-          "Automatisk teknisk måling; design og virksomhedsaktivitet er ikke verificeret.",
-      };
+  const b = presentBusiness(business, override, analysis),
+    v = b.verification;
+  if (!confirmedActive(b))
     return {
-      kind: "Din vurdering",
+      kind: "Virksomhedsstatus ikke bekræftet",
       reason:
-        "Status er gemt som en personlig vurdering. Den ændres ikke af registreringsoplysningerne.",
-      confidence: "Manuelt valgt; ingen ny automatisk kontrol er udført.",
-      checkedAt: undefined,
+        v?.identity.reason ||
+        "Aktivitet er ikke kontrolleret i en pålidelig kilde. En manglende webadresse giver ikke alene en rød salgsmulighed.",
+      confidence:
+        "Gemte personlige vurderinger bevares separat. De bekræfter ikke virksomhedens aktivitet.",
+      checkedAt: v?.identity.checkedAt || undefined,
     };
-  }
   if (b.status === "missing")
     return {
-      kind: "Registreringsoplysning",
+      kind: "Aktiv virksomhed · registreringsoplysning",
       reason: b.socialProfiles?.length
-        ? "Der er kun registreret sociale profiler, ingen selvstændig hjemmeside."
-        : "Ingen registreret hjemmeside fundet i de indlæste kildedata.",
+        ? "Kun sociale profiler er fundet i de gennemgåede kilder, ingen selvstændig hjemmeside."
+        : "Ingen selvstændig hjemmeside registreret i de gennemgåede import-/virksomhedskilder.",
       confidence:
-        "Det er ikke bevis for, at virksomheden mangler en hjemmeside. Virksomheden kan stadig være aktiv.",
-      checkedAt: undefined,
+        "Søgningen er kildebegrænset, ikke bevis for at en hjemmeside ikke findes.",
+      checkedAt: v?.websiteSearch?.checkedAt,
+    };
+  const a = usableAnalysis(analysis, b.website)
+    ? analysis
+    : v?.website?.analysis;
+  if (a && a.score !== null && b.status !== "unknown")
+    return {
+      kind: "Serverbaseret teknisk kontrol",
+      reason: `Teknisk score ${a.score}/100. ${a.findings.join(" ")}`,
+      confidence:
+        "Vægtet Lighthouse-måling. Visuelt design og komplette navigationsflows er ikke automatisk verificeret.",
+      checkedAt: a.checkedAt,
     };
   return {
-    kind: "Ikke kontrolleret",
+    kind:
+      b.status === "improve"
+        ? "Dokumenteret teknisk fejl"
+        : "Afventer pålidelig hjemmesidekontrol",
     reason:
-      "Der er en registreret hjemmeside, men ingen gennemført eller gemt vurdering.",
+      v?.website?.reason ||
+      "Virksomhedens aktivitet er bekræftet, men hjemmesiden er ikke tilstrækkeligt undersøgt.",
     confidence:
-      "Hjemmesidens kvalitet og tilgængelighed er endnu ikke afklaret.",
-    checkedAt: undefined,
+      "Timeout, HTTP 200 eller en personlig farve giver ikke alene en automatisk kvalitetsvurdering.",
+    checkedAt: v?.website?.checkedAt,
   };
 }

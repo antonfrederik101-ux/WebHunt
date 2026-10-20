@@ -74,19 +74,21 @@ test("website analysis rejects local addresses, credentials, non-HTTP schemes an
   assert.equal(safeWebsite("javascript:alert(1)"), "");
 });
 test("scores derive from actual returned categories and cannot claim an unrun analysis", () => {
-  assert.throws(() => summarizeLighthouse({}, "https://example.com"));
+  assert.equal(summarizeLighthouse({}, "https://example.com").score, null);
   const result = summarizeLighthouse(
     {
       categories: {
         performance: { score: 0.6 },
         seo: { score: 0.9 },
         accessibility: { score: 0.9 },
+        "best-practices": { score: 1 },
       },
+      audits: { viewport: { score: 1 }, "http-status-code": { score: 1 } },
       finalUrl: "https://example.com",
     },
     "https://example.com",
   );
-  assert.equal(result.score, 80);
+  assert.equal(result.score, 82);
   assert.equal(result.status, "improve");
   assert.match(result.findings[0], /60/);
   const good = summarizeLighthouse(
@@ -95,7 +97,9 @@ test("scores derive from actual returned categories and cannot claim an unrun an
         performance: { score: 0.99 },
         seo: { score: 1 },
         accessibility: { score: 0.98 },
+        "best-practices": { score: 1 },
       },
+      audits: { viewport: { score: 1 }, "http-status-code": { score: 1 } },
     },
     "https://example.com",
   );
@@ -104,7 +108,8 @@ test("scores derive from actual returned categories and cannot claim an unrun an
     { categories: { performance: { score: 1 } } },
     "http://example.com",
   );
-  assert.equal(http.status, "improve");
+  assert.equal(http.status, "unknown");
+  assert.equal(http.score, null);
   assert.equal(http.seo, null);
 });
 test("CSV preserves quotes and Danish text and neutralizes spreadsheet formulas", () => {

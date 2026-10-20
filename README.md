@@ -2,7 +2,16 @@
 
 Dansk virksomhedskort til webdesignere. Next.js 16, React 19, TypeScript, Tailwind CSS 4, Leaflet/markercluster, Lucide og Supabase. Lyst tema med hvid sidebar, lysegrå baggrund, mørk tekst og mintgrønne knapper. MapTiler Streets v4 viser det detaljerede gadekort.
 
-## Aktuel leverance: fase 1 og 2
+## Aktuel leverance: virksomhedsvalidering og hjemmesidekontrol
+
+Se [kontrolrapporten](docs/VERIFICATION_REPORT.md) for ny datamodel, kilder, score, tests og kendte begrænsninger.
+Lukkede poster skjules og bevares i databasen. Ubekræftede virksomheder er grå; en personlig farve eller et tomt hjemmesidefelt er ikke aktivitetsbevis.
+`npm run verify:pilot -- --limit 20` starter/genoptager en batch i det eksisterende Codespace.
+Den faktiske Nykøbing-rapport kan først opgøres, når workeren er kørt på databasen dér.
+CVR-login er ikke påkrævet: kildebelagt manuelt opslag understøttes i `/admin`; manglende automatisk dokumentation bliver usikker.
+Ingen nye byer eller AI-hjemmesidebygger er startet.
+
+## Tidligere leverance: fase 1 og 2
 
 Se [udviklingsstatus og testbeviser](DEVELOPMENT_PROGRESS.md). Resten af
 [masterplanen](docs/PROJECT_ROADMAP.md) er gemt som senere arbejde.
@@ -37,7 +46,7 @@ Det lokale geografiske oversigtskort og søgning i egen virksomhedsdatabase kræ
 - Virksomheder læses fra egen vedvarende database. Første importområde er Nykøbing Falster; flere områder kan tilføjes via importjobbet. Det er ikke et komplet CVR-register.
 - Overture Places importeres separat fra kortet. Zoom og søgning kontakter kun egen database, aldrig Overpass. Sider på højst 600 virksomheder; “Indlæs flere virksomheder” henter næste side. Dækning, faktiske antal og dato vises tydeligt.
 - Navn, adresse, by, postnummer, branche og eventuelt CVR søges i hele det importerede kortudsnit i databasen, også efter de første 600 poster. Byforslag navigerer uden geokodning; “Søg som sted” og ukendte postnumre bruger Nominatim.
-- Branche- og statusfiltre. Rød betyder ingen registreret selvstændig hjemmeside (også sociale profiler alene), grå betyder registreret men ikke kontrolleret. Orange/grøn kræver en eksisterende teknisk eller personlig vurdering. Manglende registrering er ikke bevis for en manglende hjemmeside. Farvetællinger og filtre gælder de indlæste poster; blandede klynger viser alle repræsenterede farver. Importerede råstatusser og gemte vurderinger omskrives ikke.
+- Branche- og statusfiltre. Rød kræver bekræftet aktivitet og kildegennemgang uden registreret selvstændig hjemmeside. Orange/grøn kræver aktuelle, dokumenterede målinger. Usikker aktivitet eller utilstrækkelig hjemmesidekontrol er grå. Gamle personlige valg bevares separat og giver ikke aktivitetsbevis. Farvetællinger og filtre gælder de indlæste poster; blandede klynger viser alle repræsenterede farver. Importerede råstatusser og gemte vurderinger omskrives ikke.
 - Virksomhedspanel med kildelink, kontaktkopiering, telefon-/hjemmesidelink, manuel status, analyse og gem som lead.
 - Leads med noter, kontaktstatus, dato, sletning og CSV-eksport (inkl. beskyttelse mod simple regnearksformler).
 - Statistik over det faktisk indlæste datasæt og brugerens egne leads. Ingen simulerede tal.
@@ -73,7 +82,7 @@ Uden nøgle afprøves Googles anonyme kvote, som ofte er begrænset. For stabil 
 2. Opret en API-nøgle, begræns den til PageSpeed Insights API og til serverens IP, hvis din hosting giver en stabil udgående IP.
 3. Sæt `PAGESPEED_API_KEY` som servermiljøvariabel. Den må aldrig have `NEXT_PUBLIC_`-præfiks. Genstart serveren.
 
-Analysen bruger mobilstrategi og kategorierne performance, SEO og accessibility. Scoren er gennemsnittet af de returnerede kategorier (0–100); performance skal være til stede. Grøn kræver score ≥85 og HTTPS. Andre gennemførte analyser bliver orange. Resultater forklares, dateres og caches i op til 24 timer. En teknisk score er ikke en vurdering af design, juridisk efterlevelse eller en garanti for mobilvenlighed. Timeout/API-fejl giver ingen score og status “Ikke undersøgt”. Analysen kan tage op til 100 sekunder; hostingen skal understøtte dette eller bruge en jobkø før større drift.
+Kontrollen gemmes vedvarende, validerer DNS/adresser og redirects mod SSRF, respekterer robots og Retry-After og kræver alle nødvendige Lighthouse-målinger før en score. Modellen er performance 35 %, accessibility 25 %, SEO 15 %, best practices 15 % og viewport 10 %. Det er en teknisk score; visuelt design og komplette brugerflows er ikke verificeret. En enkelt timeout eller 404/410 giver ikke orange eller lukket virksomhed. Se [præcis model, sikkerhedsgrænser og kørsel](docs/VERIFICATION_REPORT.md).
 
 ## Virksomhedsdata, database og licens
 

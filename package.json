@@ -14,7 +14,9 @@
     "data:refresh": "node scripts/data-refresh.mjs",
     "prebuild": "npm run check:config",
     "data:setup": "python3 -m venv .data/import-venv && .data/import-venv/bin/pip install -r scripts/import-requirements.txt",
-    "data:import": "node --use-env-proxy --import tsx scripts/import-places.ts"
+    "data:import": "node --use-env-proxy --import tsx scripts/import-places.ts",
+    "verify:pilot": "node --use-env-proxy --import tsx scripts/validate-pilot.ts",
+    "verify:admin": "node scripts/admin-access.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.6.1",

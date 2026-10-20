@@ -76,34 +76,22 @@ test("normalization keeps social profiles and uses a later real website instead 
     "https://not-facebook.com/",
   );
 });
-test("display colors represent registration evidence and preserve manual statuses without writing imported rows", () => {
+test("unverified company colors stay gray without overwriting imported fields or saved personal choices", () => {
   const original = prepareSnapshot([feature("status")], PILOT, "2026-09-23.1")
     .records[0];
   const missing = { ...original, website: "" };
-  assert.equal(presentBusiness(missing).status, "missing");
+  const saved = "good" as const;
+  assert.equal(presentBusiness(missing).status, "unknown");
+  assert.equal(presentBusiness(missing, saved).status, "unknown");
+  assert.equal(saved, "good");
   assert.equal(missing.status, "unknown");
-  assert.equal(
-    presentBusiness(presentBusiness(missing)).statusOrigin,
-    "registration",
-  );
-  assert.equal(
-    presentBusiness(presentBusiness(missing, "unknown")).status,
-    "unknown",
-  );
-  assert.equal(
-    presentBusiness(presentBusiness(missing, "unknown")).statusOrigin,
-    "assessment",
-  );
   assert.equal(
     presentBusiness({ ...missing, website: "https://facebook.com/fixture" })
       .status,
-    "missing",
+    "unknown",
   );
-  assert.equal(presentBusiness(original).status, "unknown");
-  assert.equal(presentBusiness(missing, "good").status, "good");
-  assert.equal(presentBusiness(missing, "unknown").status, "unknown");
-  assert.match(statusEvidence(missing).confidence, /ikke bevis/);
-  assert.equal(statusEvidence(original, "improve").kind, "Din vurdering");
+  assert.equal(presentBusiness(presentBusiness(missing)).status, "unknown");
+  assert.match(statusEvidence(missing).reason, /Aktivitet/);
 });
 test("numeric release ordering accepts patch 10 after 2 and prevents real downgrades", () => {
   assert.ok(compareReleases("2026-09-23.10", "2026-09-23.2") > 0);

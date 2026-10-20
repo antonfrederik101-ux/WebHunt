@@ -240,6 +240,9 @@ export function normalizePlace(
         : "",
     ...websiteDetails(p?.websites, p?.socials),
     status: "unknown",
+    ...(typeof p?.operating_status === "string"
+      ? { operatingStatus: p.operating_status }
+      : {}),
     source: "Overture Maps",
     sourceDatasets: datasets,
     sourceDetails: sources,

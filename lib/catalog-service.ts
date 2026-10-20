@@ -81,5 +81,17 @@ export async function catalogBusinesses(
     ]
       .filter(Boolean)
       .join(" ");
+  result.businesses = result.businesses.filter(
+    (b) =>
+      b.operatingStatus !== "permanently_closed" &&
+      b.verification?.identity.state !== "closed" &&
+      !b.verification?.duplicateOf,
+  );
+  result.warning = [
+    result.warning,
+    "Dette Supabase-katalog har ikke en tilknyttet verifikationsworker. Ubekræftede virksomheder vises grå; personlige farver er ikke aktivitetsbevis.",
+  ]
+    .filter(Boolean)
+    .join(" ");
   return result;
 }

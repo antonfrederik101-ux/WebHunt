@@ -1,3 +1,4 @@
+import { VerificationStore, recordHash } from "./verification-store";
 import { compareReleases } from "./releases";
 import { foldSearch, type CatalogQuery } from "./catalog-query";
 import { presentBusiness } from "./business-status";
@@ -32,6 +33,7 @@ export type CatalogResult = {
 export class CatalogNotReady extends Error {}
 export class BusinessCatalog {
   readonly db: DatabaseSync;
+  readonly verification: VerificationStore;
   constructor(
     filename = process.env.WEBHUNT_CATALOG_PATH ||
       path.join(process.cwd(), ".data", "businesses.sqlite"),
@@ -54,6 +56,9 @@ export class BusinessCatalog {
       "webhunt_category",
       (raw) => presentBusiness(JSON.parse(String(raw))).category,
     );
+    this.db.function("webhunt_record_hash", (raw) =>
+      recordHash(JSON.parse(String(raw))),
+    );
     this.db.exec(`
       PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
       CREATE TABLE IF NOT EXISTS catalog_regions (id TEXT PRIMARY KEY, name TEXT NOT NULL, bounds TEXT NOT NULL, release TEXT NOT NULL, imported_at TEXT NOT NULL);
@@ -61,6 +66,7 @@ export class BusinessCatalog {
       CREATE VIRTUAL TABLE IF NOT EXISTS catalog_spatial USING rtree(id, min_lon, max_lon, min_lat, max_lat);
       CREATE TABLE IF NOT EXISTS catalog_membership (region_id TEXT NOT NULL REFERENCES catalog_regions(id), business_id TEXT NOT NULL REFERENCES catalog_places(business_id), PRIMARY KEY(region_id, business_id));
     `);
+    this.verification = new VerificationStore(this.db);
   }
   import(snapshot: ImportSnapshot) {
     if (!snapshot.records.length)
@@ -119,17 +125,20 @@ export class BusinessCatalog {
         if (p) spatial.run(p.id, p.lon, p.lon, p.lat, p.lat);
         membership.run(snapshot.region.id, b.id);
       }
-      // Only retire rows belonging to this import; never sweep unrelated records.
-      const retireSpatial = this.db.prepare(
-        "DELETE FROM catalog_spatial WHERE id IN (SELECT p.id FROM catalog_places p WHERE p.business_id=? AND NOT EXISTS (SELECT 1 FROM catalog_membership m WHERE m.business_id=p.business_id))",
+      // Keep withdrawn source records and their control history for investigation.
+      const retire = this.db.prepare(
+        "INSERT OR IGNORE INTO catalog_retired SELECT business_id,?,? FROM catalog_places p WHERE business_id=? AND NOT EXISTS(SELECT 1 FROM catalog_membership m WHERE m.business_id=p.business_id)",
       );
-      const retirePlace = this.db.prepare(
-        "DELETE FROM catalog_places WHERE business_id=? AND NOT EXISTS (SELECT 1 FROM catalog_membership m WHERE m.business_id=catalog_places.business_id)",
+      for (const old of previous)
+        retire.run(
+          new Date().toISOString(),
+          "Ikke længere medlem af den opdaterede kildeimport",
+          old.business_id,
+        );
+      const restore = this.db.prepare(
+        "DELETE FROM catalog_retired WHERE business_id=?",
       );
-      for (const previousRecord of previous) {
-        retireSpatial.run(previousRecord.business_id);
-        retirePlace.run(previousRecord.business_id);
-      }
+      for (const b of snapshot.records) restore.run(b.id);
       this.db.exec("COMMIT");
     } catch (e) {
       this.db.exec("ROLLBACK");
@@ -167,7 +176,10 @@ export class BusinessCatalog {
           bounds[1],
         ]
       : [];
-    const base = `FROM catalog_places p${spatial} WHERE ${where}`;
+    const base = `FROM catalog_places p${spatial} LEFT JOIN business_verification v ON v.business_id=p.business_id WHERE ${where}
+      AND NOT EXISTS(SELECT 1 FROM catalog_retired a WHERE a.business_id=p.business_id)
+      AND coalesce(json_extract(v.result,'$.identity.state'),'uncertain')<>'closed'
+      AND (v.record_hash IS NULL OR v.record_hash<>webhunt_record_hash(p.record) OR coalesce(json_extract(v.result,'$.duplicateOf'),'')='')`;
     const categoryRows = this.db
       .prepare(
         `SELECT DISTINCT webhunt_category(p.record) AS category ${base} ORDER BY category`,
@@ -196,9 +208,11 @@ export class BusinessCatalog {
         `SELECT p.record ${filtered} ORDER BY p.business_id LIMIT 600 OFFSET ?`,
       )
       .all(...values, offset);
-    const records = rows.map(
-      (r) => JSON.parse(String(r.record)) as CatalogBusiness,
-    );
+    const records = rows.map((r) => {
+      const b = JSON.parse(String(r.record)) as CatalogBusiness;
+      const verification = this.verification.get(b);
+      return { ...b, ...(verification ? { verification } : {}) };
+    });
     const oldest = regions.reduce((a, b) =>
       a.importedAt < b.importedAt ? a : b,
     ).importedAt;
@@ -234,9 +248,16 @@ export class BusinessCatalog {
       categories: categoryRows.map((r) => String(r.category)),
       nextOffset:
         offset + records.length < matchedTotal ? offset + records.length : null,
-      revision: regions
-        .map((r) => `${r.id}:${r.release}:${r.importedAt}`)
-        .join("|"),
+      revision:
+        regions.map((r) => `${r.id}:${r.release}:${r.importedAt}`).join("|") +
+        ":" +
+        String(
+          this.db
+            .prepare(
+              "SELECT coalesce(max(id),0) AS n FROM verification_history",
+            )
+            .get()!.n,
+        ),
       source: "Overture Maps · egen database",
       fetchedAt: oldest,
       regions,
@@ -258,8 +279,15 @@ export class BusinessCatalog {
 
 const shared = globalThis as typeof globalThis & {
   webhuntCatalog?: BusinessCatalog;
+  webhuntCatalogVersion?: number;
 };
 export function getCatalog() {
+  // Next dev preserves globals across code updates. Reopen the connection with
+  // the new class/schema instead of keeping the previous getter alive after pull.
+  if (shared.webhuntCatalog && shared.webhuntCatalogVersion !== 2) {
+    shared.webhuntCatalog.close();
+    delete shared.webhuntCatalog;
+  }
   if (!shared.webhuntCatalog) {
     const db = new BusinessCatalog();
     const seedFile = path.join(
@@ -281,6 +309,7 @@ export function getCatalog() {
         if (!current) db.import(seed);
       }
       shared.webhuntCatalog = db;
+      shared.webhuntCatalogVersion = 2;
     } catch (e) {
       db.close();
       throw e;
