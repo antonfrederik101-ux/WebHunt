@@ -1,3 +1,4 @@
+import { loadEnvConfig } from "@next/env";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import path from "node:path";
@@ -9,6 +10,7 @@ import {
   type Region,
 } from "../lib/overture";
 
+loadEnvConfig(process.cwd());
 const args = process.argv.slice(2);
 const value = (name: string) => {
   const index = args.indexOf(name);

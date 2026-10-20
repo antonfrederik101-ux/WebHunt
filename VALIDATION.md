@@ -61,3 +61,14 @@ Codespaces-opstartsscriptet blev faktisk kørt efter at have stoppet vores egen 
 - Supabase SQL migration, import, geographic query, anonymous read, denial of anonymous import, and failed-import rollback passed in isolated PGlite/PostgreSQL. The user's actual Supabase catalog is not migrated or live-tested; public credentials do not authorize administrative migrations.
 - `npm audit --omit=dev`: 0 vulnerabilities. Actual CVR/Datafordeler terms pages are blocked; no CVR scraping or unverified CVR import is implemented.
 - Network requirements, import environment setup and current startup instructions are saved in the Codex environment draft. Saving does not activate or publish them. Live source import and browser validation of actual Nykøbing Falster businesses remain outstanding until the network change is applied.
+
+## Connection diagnosis and delivery correction — 2026-10-20
+
+- Tested every existing Overture destination: STAC, standard/regional S3, Azure and docs. All are denied with CONNECT 403 by the current Codex egress proxy before upstream TLS. Nominatim control returns 200. Both Python and Node fail; proxy variable case precedence and shell network permission were checked and do not explain it.
+- Saving the exact unchanged network list succeeds through the backend, with `requires_publish: true`; read-back has the same list/base version. No new domains were added. No tool exposes publication state or the user's UI save error logs, so actual publication is not claimed or assumed.
+- Actual `data:refresh -- --publish-seed` still stops at STAC and preserves the empty/previous database. No actual Overture records or fabricated seed were included.
+- Fixed latent importer TLS trust propagation, per-stage safe diagnoses, HTTP/process timeouts; offline Python tests cover proxy versus upstream/TLS errors and secret redaction. Added a bounded network doctor and a single pilot-import helper for the user's existing Codespace.
+- Discovered `main` had not yet received the catalog feature. The verified catalog and new helpers are being delivered together so pulling main can actually run the persistent importer.
+
+- Final checks for the diagnostic delivery: production build and typecheck passed; 25 Node tests, 6 Python diagnostic tests and 12 Chromium tests passed. The full pilot helper was exercised and correctly stopped at the known CONNECT 403 without changing data. Its successful live-source path remains unverified until run from a machine with working Overture access.
+- Reviewed official Node/buildpack-deps Dockerfiles: Python venv/ensurepip was not guaranteed in the previous Codespaces image. Added an explicit Dockerfile for future containers and a root/noninteractive-sudo Debian-package check in the helper for existing Codespaces. This installation branch is syntax-reviewed, not claimed as tested in the user's Codespace. No container rebuild is required just to try the helper.

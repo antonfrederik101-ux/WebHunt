@@ -8,6 +8,6 @@ if (!existsSync(python)) {
 const result = spawnSync(
   python,
   ["scripts/download-places.py", ...process.argv.slice(2)],
-  { stdio: "inherit" },
+  { stdio: "inherit", timeout: 30 * 60 * 1000 },
 );
 process.exit(result.status ?? 1);

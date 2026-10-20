@@ -1,6 +1,5 @@
 {
   "name": "WebHunt online preview",
-  "image": "node:24-bookworm",
   "forwardPorts": [3000],
   "portsAttributes": {
     "3000": {
@@ -15,5 +14,8 @@
     "vscode": {
       "extensions": ["dbaeumer.vscode-eslint"]
     }
+  },
+  "build": {
+    "dockerfile": "Dockerfile"
   }
 }

@@ -125,3 +125,13 @@ Database, normalisering og transaktions-/adgangskontrol kan testes med isolerede
 fixtures. Det beviser ikke live dataadgang. En virkelig Nykøbing Falster-import og
 klikbare **virkelige** virksomheder kan først godkendes, når det officielle STAC-
 og GeoParquet-lager kan nås og data er hentet. Der er ikke indsat opdigtede poster.
+
+## Netværksfejl og samlet pilotimport
+
+Se [den konkrete forbindelsesdiagnose](network-diagnosis.md). En adresse i en gemt
+allowlist beviser ikke, at den kørende proxy har aktiveret den. Test de eksisterende
+adresser med `python3 scripts/check-overture-network.py` før netværkslisten ændres.
+
+`bash scripts/import-pilot.sh` samler netværkskontrol, installation, afgrænset import
+og lokal databaseverifikation. Brug den i det eksisterende checkout; den skifter
+ikke miljøindstillinger, kopierer ikke nøgler og overskriver ikke `.env.local`.

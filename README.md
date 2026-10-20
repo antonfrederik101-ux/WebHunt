@@ -64,6 +64,16 @@ Analysen bruger mobilstrategi og kategorierne performance, SEO og accessibility.
 
 ## Virksomhedsdata, database og licens
 
+Pilotimport i det eksisterende Codespace efter opdatering af koden:
+
+```bash
+bash scripts/import-pilot.sh
+```
+
+Kommandoen kontrollerer først den faktiske netværksadgang og importerer kun
+Nykøbing Falster. Den skal gennemføre med et reelt antal virksomheder, før
+visning af rigtige Overture-virksomheder kan bekræftes.
+
 Læs [database- og kildebeslutningen](docs/business-data.md) for Overture Places,
 undersøgelsen af danske registre, importkommandoer, licenser, vedvarende SQLite og
 Supabase som fælles database. Den nye API bruger ikke længere Overpass.
