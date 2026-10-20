@@ -69,7 +69,7 @@ Tillad HTTPS til:
 | Domæne | Formål |
 | --- | --- |
 | `overpass-api.de`, `overpass.private.coffee` | Virksomhedsdata / alternativ offentlig Overpass-instans |
-| `tile.openstreetmap.org` | Kortfliser (direkte fra browseren) |
+| `api.maptiler.com` | Valgfrit licenseret mørkt detaljekort med egen MapTiler-nøgle |
 | `nominatim.openstreetmap.org` | Danske stedssøgninger |
 | `www.googleapis.com` | PageSpeed Insights |
 | `DIT-PROJEKT.supabase.co` | Login/database; præcist projektdomæne foretrækkes |
@@ -81,7 +81,7 @@ Overpass-resultater gemmes atomisk som JSON i `.data/osm/` (eller `WEBHUNT_CACHE
 
 Identiske samtidige forespørgsler samles. En fillås tillader kun én OSM-opdatering ad gangen på det delte datalager. Ved kapacitetsfejl ventes eksponentielt fra to minutter til 30 minutter; en længere `Retry-After` respekteres. Fejlpauser gemmes på disk og overlever genstart. Den anden offentlige instans bruges sekventielt, ikke parallelt. Forespørgsler bruger konkrete indekserede OSM-tags, et begrænset geografisk område og særskilte resultatlofter for hver oversigtsby. En tom, gennemført søgning caches; en timeout eller delvist svar caches ikke som et tomt resultat.
 
-Kortbevægelser har 600 ms debounce, og kortudsnit afrundes til et lille geografisk gitter for bedre cachegenbrug. Der er IP-begrænsning (virksomheder 24/minut, steder 10/minut, analyse 5/5 minutter). Nominatim begrænses til højst én udgående forespørgsel pr. 1,1 sekund pr. proces og bruges ikke til autocomplete. Der foretages ingen forudindlæsning eller offline-download af kortfliser.
+Kortbevægelser har 600 ms debounce, og kortudsnit afrundes til et lille geografisk gitter for bedre cachegenbrug. Der er IP-begrænsning (virksomheder 24/minut, steder 10/minut, analyse 5/5 minutter). Nominatim begrænses til højst én udgående forespørgsel pr. 1,1 sekund pr. proces og bruges ikke til autocomplete. Der foretages ingen forudindlæsning eller offline-download af udbydernes kortfliser. Det lokale oversigtskort er separat public-domain vektorgeometri fra Natural Earth; det er ikke kopierede OSM-fliser.
 
 Opvarm eller genopfrisk et begrænset landsudvalg med `npm run data:refresh`. Kommandoen bruger samme cache, lås og ventetider som appen og omgår aldrig en aktiv fejlpause.
 
@@ -181,3 +181,31 @@ Kortvisning og lokale leads kan testes uden Supabase-konfiguration. Cloudmiljøe
 - Kontrollér **Indstillinger → Test forbindelsen** i WebHunt. Appens OSM-datakilder kan stadig være overbelastede; det er uafhængigt af, om previewserveren kan åbnes. Datafejl må ikke forveksles med forbindelsesfejlen `ERR_CONNECTION_REFUSED`.
 
 Hvis browsereditoren er åben, men en gammel codespace ikke bruger den nye opsætning, åbn kommandopaletten med **F1**, vælg **Codespaces: Rebuild Container**, og følg porttrinnene igen. Codespaces er et udviklingsmiljø, ikke permanent offentlig webhosting.
+
+
+## Kortrettelse: lokal oversigt og licenseret MapTiler
+
+OpenStreetMaps standardfliser på `tile.openstreetmap.org` er helt fjernet fra appens kortkode. `osm.wiki/Blocked` i fejlflisen var et hjælpelink, ikke den kaldte kortserver. Skærmbilledet dokumenterer en policyblokering; uden netværksheaderne fra brugerens Codespace kan den præcise udløsende regel ikke fastslås. Appen forsøger ikke at løse dette med skjult proxying, falsk User-Agent/Referer, nye IP-adresser eller rotation mellem gratis fliseservere.
+
+**Kortet virker uden nøgle som geografisk oversigt:** `public/maps/denmark-context.geojson` er et lokalt udtræk af Natural Earth 1:10m public-domain geometri for Danmark og nabolande. Bornholm er med. Kilde og vilkår er angivet i `public/maps/NOTICE.md`. Det er et generaliseret landeoversigtskort, ikke et gadekort eller en virksomhedsdatakilde. Leaflet-pan/zoom, bysøgning, clustering og farvede virksomhedsmarkører er bevaret. Bysøgning og rigtige virksomheder kræver fortsat deres egne datakilders tilgængelighed.
+
+**Aktivér mørkt gade-/detaljekort fra MapTiler:**
+
+1. Opret/log ind på en konto på https://cloud.maptiler.com/ og vælg en plan, der tillader din forventede brug og trafik. Gennemgå MapTilers aktuelle vilkår og kvoter.
+2. Åbn **API keys**: https://cloud.maptiler.com/account/keys/ . Opret en særskilt nøgle til WebHunt via **New key** / **Create key**.
+3. Begræns nøglen til appens faktiske HTTP-origins under nøglens indstillinger for tilladte origins. For Codespaces kopierer du den konkrete previewadresse fra browseren (adresse med `-3000.app.github.dev`), ikke editoradressen på `github.dev`. Tilføj kun lokal origin, hvis du bruger den, og dit egentlige produktionsdomæne ved deployment. Undgå en ubegrænset nøgle.
+4. I **dit Codespace**: åbn `.env.local` (opret filen i projektroden, hvis den mangler). Tilføj:
+
+   ```dotenv
+   NEXT_PUBLIC_MAPTILER_KEY=DIN_EGEN_MAPTILER_NØGLE
+   ```
+
+   Bevar eksisterende Supabase-/Google-værdier. Nøglen er en browsernøgle og indgår i kortforespørgslerne; derfor er domænebegrænsning og kvoter nødvendige. Brug ikke en privat administrationsnøgle. `.env.local` er Git-ignoreret og må ikke committes. Send ikke nøglen i chat. Codex- og Codespaces-miljøvariabler er separate.
+5. Genstart udviklingsserveren. Hvis den kører i terminalen, tryk **Ctrl+C** og kør `npm run dev` igen. Ved automatisk baggrundsstart kan du vælge **F1 → Codespaces: Rebuild Container**, som bevarer projektets ignorerede lokale fil og genstarter appen. Produktionsserveren kræver et nyt `npm run build`, fordi `NEXT_PUBLIC_` indlejres ved build.
+6. Genindlæs browser-previewen. Kortet skal vise **MapTiler · mørkt detaljekort**. Ved HTTP 401/403 vises en tydelig adgangsfejl og det lokale oversigtskort; appen stopper nye kortforespørgsler i den session og skifter ikke til en anden ekstern leverandør. Kontrollér nøgle, origins, plan og kvote i MapTiler.
+
+MapTiler-layeren bruger den mørke `dataviz-v4-dark`-stil, 512 px rasterfliser og korrekt Leaflet zoom-offset. MapTiler- og OSM-kildeangivelse er med. Kortforespørgsler bruger almindelig browseridentitet, standard HTTP-cache og ægte origin-referrer. HTTP-status kontrolleres før billedet indlæses, så et 403-fejlbillede ikke kan vises som kort. TLS-/CORS-kontrol bevares; der er ingen serverproxy eller automatiske omgåelser.
+
+**Virksomheder er uafhængige af basiskortet:** Den rigtige backendkontrol returnerede HTTP 503 med en ventetid, fordi Overpass ikke var tilgængelig og der ikke fandtes et brugbart rigtigt snapshot. Brugerfladen viser nu **Data ikke indlæst** og en streg i stedet for at præsentere fejlen som nul virksomheder. Genforsøgsknappen respekterer serverens ventetid. Der indsættes aldrig opfundne virksomheder.
+
+**Hent denne rettelse i dit eksisterende Codespace:** Åbn en ny terminal, kør `git pull --ff-only`, og genindlæs previewfanen. Hvis udviklingsserveren er stoppet, kør `npm run dev`. Du behøver ikke oprette et nyt Codespace.

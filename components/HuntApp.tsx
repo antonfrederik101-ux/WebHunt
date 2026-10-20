@@ -88,6 +88,7 @@ export default function HuntApp() {
     [bbox, setBbox] = useState(""),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
+    [retrySeconds, setRetrySeconds] = useState(0),
     [overview, setOverview] = useState(true),
     [capped, setCapped] = useState(false),
     [fetchedAt, setFetchedAt] = useState(""),
@@ -249,7 +250,16 @@ export default function HuntApp() {
       );
       const d = await r.json();
       if (n !== seq.current) return;
-      if (!r.ok) throw new Error(d.error);
+      if (!r.ok) {
+        setRetrySeconds(
+          Math.max(
+            0,
+            Number(d.retryAfter || r.headers.get("Retry-After") || 0),
+          ),
+        );
+        throw new Error(d.error);
+      }
+      setRetrySeconds(0);
       setBusinesses(d.businesses);
       setOverview(d.overview);
       setCapped(d.limited);
@@ -268,6 +278,14 @@ export default function HuntApp() {
   useEffect(() => {
     if (bbox) fetchBusinesses(bbox);
   }, [bbox, fetchBusinesses]);
+  useEffect(() => {
+    if (retrySeconds <= 0) return;
+    const timeout = setTimeout(
+      () => setRetrySeconds((s) => Math.max(0, s - 1)),
+      1000,
+    );
+    return () => clearTimeout(timeout);
+  }, [retrySeconds]);
   const onBounds = useCallback((b: string) => setBbox(b), []);
   const all = useMemo(
     () =>
@@ -826,13 +844,25 @@ export default function HuntApp() {
                     <Building2 size={20} />
                   </div>
                   <div>
-                    <strong>{all.length.toLocaleString("da-DK")}</strong>
-                    <span>virksomheder indlæst</span>
+                    <strong>
+                      {(loading || error) && !all.length
+                        ? "—"
+                        : all.length.toLocaleString("da-DK")}
+                    </strong>
+                    <span>
+                      {error && !all.length
+                        ? "Data ikke indlæst"
+                        : loading
+                          ? "Henter virksomhedsdata"
+                          : "virksomheder indlæst"}
+                    </span>
                   </div>
                   <div className="stat-divider" />
                   <div>
                     <strong className="mint">
-                      {counts.missing + counts.improve}
+                      {(loading || error) && !all.length
+                        ? "—"
+                        : counts.missing + counts.improve}
                     </strong>
                     <span>potentielle kunder</span>
                   </div>
@@ -854,8 +884,13 @@ export default function HuntApp() {
                   <div className="map-notice error">
                     <AlertCircle size={18} />
                     <span>{error}</span>
-                    <button onClick={() => fetchBusinesses(bbox)}>
-                      Prøv igen
+                    <button
+                      disabled={retrySeconds > 0}
+                      onClick={() => fetchBusinesses(bbox)}
+                    >
+                      {retrySeconds > 0
+                        ? `Prøv igen om ${retrySeconds} s`
+                        : "Prøv igen"}
                     </button>
                   </div>
                 )}
@@ -1233,6 +1268,35 @@ export default function HuntApp() {
               </section>
               <section className="panel">
                 <div className="section-icon">
+                  <Map />
+                  <h3>Kortgrundlag</h3>
+                </div>
+                <p>
+                  Et lokalt Natural Earth-oversigtskort viser Danmark og øerne
+                  uden eksterne kortfliser. Det er generaliserede landegrænser
+                  og indeholder ikke gadenavne. Zoom, bysøgning og
+                  virksomhedsmarkører fungerer stadig.
+                </p>
+                <p>
+                  {process.env.NEXT_PUBLIC_MAPTILER_KEY
+                    ? "MapTiler er konfigureret til mørke detaljekort. Hvis udbyderen afviser adgang, stoppes forespørgslerne, og oversigtskortet vises."
+                    : "For gade- og detaljekort skal administratoren oprette en MapTiler-konto, vælge en passende plan og konfigurere NEXT_PUBLIC_MAPTILER_KEY med domænebegrænsning."}
+                </p>
+                <a
+                  href="https://cloud.maptiler.com/account/keys/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Åbn MapTiler API keys <ArrowUpRight size={13} />
+                </a>
+                <p>
+                  Kortgrundlag og virksomhedsdata er separate tjenester. Et
+                  synligt kort betyder ikke, at virksomhedsdatasættet er
+                  indlæst.
+                </p>
+              </section>
+              <section className="panel">
+                <div className="section-icon">
                   <Globe />
                   <h3>Datakilder og dækning</h3>
                 </div>
@@ -1291,7 +1355,10 @@ export default function HuntApp() {
                 <p>
                   Søgninger sendes til OpenStreetMaps datatjenester.
                   Hjemmesideadresser sendes til Google, når du vælger at
-                  analysere. Kortfliser indlæses direkte fra OpenStreetMap.
+                  analysere. Oversigtskortet indlæses lokalt fra Natural Earth
+                  (public domain). Hvis MapTiler er konfigureret, sendes
+                  kortforespørgsler direkte til MapTiler. OpenStreetMaps
+                  standardkortfliser bruges ikke.
                 </p>
               </section>
             </div>

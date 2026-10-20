@@ -688,10 +688,7 @@ small {
   background: #18232d;
   z-index: 0;
 }
-.leaflet-tile-pane {
-  filter: invert(0.91) hue-rotate(165deg) saturate(0.32) brightness(0.77)
-    contrast(1.05);
-}
+
 .leaflet-container {
   font-family: var(--font);
 }
@@ -2335,5 +2332,46 @@ small {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* Local vector map and licensed dark raster tiles use their original colors. */
+.country-label {
+  color: #b1c9bd;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-shadow: 0 1px 5px #08131c;
+  white-space: nowrap;
+}
+.map-provider-note {
+  position: absolute;
+  z-index: 550;
+  left: 18px;
+  right: 18px;
+  top: 178px;
+  width: fit-content;
+  max-width: calc(100% - 36px);
+  padding: 8px 12px;
+  border: 1px solid #365247;
+  border-radius: 7px;
+  background: #10251ff0;
+  color: #aec9bb;
+  font-size: 10px;
+  line-height: 1.7;
+  box-shadow: 0 4px 15px #0003;
+}
+.map-provider-note.provider-error {
+  border-color: #795b36;
+  color: #e8c998;
+  background: #251e15f0;
+}
+@media (max-width: 760px) {
+  .map-provider-note {
+    top: 176px;
+    left: 12px;
+    right: 12px;
+    max-width: calc(100% - 24px);
+    font-size: 9px;
   }
 }

@@ -139,7 +139,7 @@ test("external data failure has an actionable error and no invented businesses",
   await expect(
     page.getByRole("button", { name: "Prøv igen", exact: true }),
   ).toBeVisible();
-  await expect(page.locator(".map-stats")).toContainText("0");
+  await expect(page.locator(".map-stats")).toContainText("Data ikke indlæst");
 });
 
 test("clickable map marker and successful analysis update the real UI", async ({
@@ -250,4 +250,60 @@ test("cached partial data is visibly dated and never presented as a complete liv
   await page.goto("/");
   await expect(page.locator(".data-warning")).toContainText("ufuldstændig");
   await expect(page.locator(".data-warning")).toContainText("19.10.2026");
+});
+
+test("local Denmark map renders without any third-party tile provider when no key is configured", async ({
+  page,
+}) => {
+  const forbidden: string[] = [];
+  page.on("request", (r) => {
+    if (/tile\.openstreetmap\.org|api\.maptiler\.com/.test(r.url()))
+      forbidden.push(new URL(r.url()).hostname);
+  });
+  await fixture(page);
+  await expect(
+    page.locator(".leaflet-country-context-pane path").first(),
+  ).toBeVisible();
+  await expect(page.locator(".map-provider-note")).toContainText(
+    "Natural Earth",
+  );
+  await expect(page.locator(".leaflet-control-attribution")).toContainText(
+    "Natural Earth",
+  );
+  expect(forbidden).toEqual([]);
+});
+
+test("unavailable company data is not presented as zero Danish businesses and respects retry time", async ({
+  page,
+}) => {
+  await page.route("**/api/health", (r) =>
+    r.fulfill({
+      json: {
+        supabase: {
+          configured: false,
+          auth: "unconfigured",
+          database: "unconfigured",
+          missingTables: [],
+        },
+      },
+    }),
+  );
+  await page.route("**/api/businesses*", (r) =>
+    r.fulfill({
+      status: 503,
+      headers: { "Retry-After": "120" },
+      json: {
+        error: "Ekstern virksomhedsdatakilde er utilgængelig",
+        businesses: [],
+        retryAfter: 120,
+      },
+    }),
+  );
+  await page.goto("/");
+  await expect(page.locator(".map-notice.error")).toContainText("utilgængelig");
+  await expect(page.locator(".map-stats")).toContainText("Data ikke indlæst");
+  await expect(page.locator(".map-notice.error button")).toBeDisabled();
+  await expect(page.locator(".map-notice.error button")).toContainText(
+    "Prøv igen om",
+  );
 });
