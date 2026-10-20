@@ -76,13 +76,13 @@ export default function DenmarkMap(props: Props) {
               style: (feature) => ({
                 color:
                   feature?.properties?.name === "Denmark"
-                    ? "#86e9bf"
-                    : "#344d5a",
+                    ? "#88baa0"
+                    : "#c2d1cc",
                 weight: feature?.properties?.name === "Denmark" ? 1.5 : 1,
                 fillColor:
                   feature?.properties?.name === "Denmark"
-                    ? "#24463c"
-                    : "#1d2e39",
+                    ? "#e0eddf"
+                    : "#f4f3ed",
                 fillOpacity: 1,
               }),
             })
@@ -127,7 +127,7 @@ export default function DenmarkMap(props: Props) {
         const fail = (status?: number) => {
           if (dead || failed) return;
           failed = true;
-          tiles.remove();
+          tiles?.remove();
           for (const c of controllers) if (c !== contextController) c.abort();
           setMapError(true);
           setMapNotice(
@@ -171,7 +171,9 @@ export default function DenmarkMap(props: Props) {
                   URL.revokeObjectURL(url);
                   objectUrls.delete(url);
                   if (!dead && !failed) {
-                    setMapNotice("MapTiler · mørkt detaljekort");
+                    setMapNotice(
+                      "MapTiler Streets Light · gader, bynavne og bygninger",
+                    );
                     done(undefined, tile);
                   }
                 };
@@ -189,16 +191,41 @@ export default function DenmarkMap(props: Props) {
             return tile;
           }
         }
-        tiles = new LicensedTiles(provider.url, {
-          attribution: provider.attribution,
-          tileSize: provider.tileSize,
-          zoomOffset: provider.zoomOffset,
-          maxZoom: 19,
-          updateWhenIdle: true,
-          updateWhenZooming: false,
-          keepBuffer: 1,
-        });
-        tiles.addTo(m);
+        const styleController = new AbortController();
+        controllers.add(styleController);
+        // Validate the requested Streets v4 style, then use MapTiler's matching
+        // raster rendering. Leaflet retains zoom, city navigation and markers.
+        void fetch(provider.styleUrl, {
+          signal: styleController.signal,
+          referrerPolicy: "strict-origin-when-cross-origin",
+          credentials: "omit",
+        })
+          .then(async (response) => {
+            if (!response.ok) {
+              fail(response.status);
+              return;
+            }
+            const style = await response.json();
+            if (style.version !== 8 || !Array.isArray(style.layers)) {
+              fail();
+              return;
+            }
+            if (dead || failed) return;
+            tiles = new LicensedTiles(provider.url, {
+              attribution: provider.attribution,
+              tileSize: 512,
+              zoomOffset: -1,
+              maxZoom: 19,
+              updateWhenIdle: true,
+              updateWhenZooming: false,
+              keepBuffer: 1,
+            });
+            tiles.addTo(m);
+          })
+          .catch(() => {
+            if (!styleController.signal.aborted) fail();
+          })
+          .finally(() => controllers.delete(styleController));
       }
       lib.control.zoom({ position: "bottomright" }).addTo(m);
       cluster.current = lib

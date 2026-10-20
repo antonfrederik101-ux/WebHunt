@@ -40,3 +40,13 @@ Codespaces-opstartsscriptet blev faktisk kørt efter at have stoppet vores egen 
 - Virksomheds-API'et blev kaldt rigtigt og gav HTTP 503 med `retryAfter: 480`, fordi kilderne var utilgængelige og cachen ikke havde brugbare rigtige data. Brugerfladen viser nu en streg og Data ikke indlæst, ikke et misvisende nulresultat. Manuel genforsøg respekterer ventetiden; der er ingen falske virksomheder.
 - 19 domænetests og 11 browser-/API-tests består. Produktionsbuild og TypeScript består. De to særskilte MapTiler-responskontroller er ekstra kontroller, ikke en live test af kundens MapTiler-konto.
 - READMEs nye kortafsnit angiver præcis konto-/nøgleoprettelse, begrænsning til faktiske preview-origins, separat Codespaces-konfiguration og genstart/rebuild. Eksisterende Supabase-forhold er uændrede.
+
+## Streets Light and light interface — 2026-10-20
+
+- Switched MapTiler to Streets v4: requested `https://api.maptiler.com/maps/streets-v4/style.json`, followed by that style's raster tile endpoint. Existing `NEXT_PUBLIC_MAPTILER_KEY`, 512 px tiles, zoom offset −1, attribution, zoom, city navigation and colored Leaflet markers retained.
+- White navigation/sidebar/panels, pale gray workspace, dark readable text and status labels, mint primary actions; local Natural Earth fallback and app icon updated too.
+- `npm run build`, `npm run typecheck`: passed. `npm run test`: 19 passed. `npm run test:e2e`: 12 passed in Chromium, including new light-surface/action/status assertions and existing mobile, map-marker, search/filter, leads, notes, CSV and error flows.
+- Isolated configured-key Chromium run: intercepted all MapTiler requests before navigation, supplied a controlled style and PNG fixtures, observed requested Streets v4 style and successful tile loading (19 requests), exercised zoom and city navigation with no page errors. Controlled HTTP 403 showed the explicit fallback and no denied tiles. Fixtures were never sent to MapTiler or included in application data.
+- Live MapTiler content, street/building labels and account authorization were not revalidated here: the user's real MapTiler key exists in their Codespace, not this Codex environment. Confirm the real provider after pulling and restarting there. The Streets style supplies its normal labels and geometry; no dark CSS filter is applied.
+- Considered a vector renderer, but removed its added dependencies after audit reported an unresolved sanitizer advisory. Final dependency manifests/lockfile remain unchanged; `npm audit --omit=dev`: 0 vulnerabilities.
+- Pull with `git pull --ff-only`, restart `npm run dev`, refresh preview. Existing ignored `.env.local` is preserved. No new API key required.

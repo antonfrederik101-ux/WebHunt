@@ -1,6 +1,6 @@
 # WebHunt
 
-Dansk virksomhedskort til webdesignere. Next.js 16, React 19, TypeScript, Tailwind CSS 4, Leaflet/markercluster, Lucide og Supabase. Egen visuel identitet med mørkt kort og mintgrønne detaljer.
+Dansk virksomhedskort til webdesignere. Next.js 16, React 19, TypeScript, Tailwind CSS 4, Leaflet/markercluster, Lucide og Supabase. Lyst tema med hvid sidebar, lysegrå baggrund, mørk tekst og mintgrønne knapper. MapTiler Streets v4 viser det detaljerede gadekort.
 
 ## Start lokalt
 
@@ -69,7 +69,7 @@ Tillad HTTPS til:
 | Domæne | Formål |
 | --- | --- |
 | `overpass-api.de`, `overpass.private.coffee` | Virksomhedsdata / alternativ offentlig Overpass-instans |
-| `api.maptiler.com` | Valgfrit licenseret mørkt detaljekort med egen MapTiler-nøgle |
+| `api.maptiler.com` | Valgfrit licenseret Streets Light-detaljekort med egen MapTiler-nøgle |
 | `nominatim.openstreetmap.org` | Danske stedssøgninger |
 | `www.googleapis.com` | PageSpeed Insights |
 | `DIT-PROJEKT.supabase.co` | Login/database; præcist projektdomæne foretrækkes |
@@ -189,7 +189,7 @@ OpenStreetMaps standardfliser på `tile.openstreetmap.org` er helt fjernet fra a
 
 **Kortet virker uden nøgle som geografisk oversigt:** `public/maps/denmark-context.geojson` er et lokalt udtræk af Natural Earth 1:10m public-domain geometri for Danmark og nabolande. Bornholm er med. Kilde og vilkår er angivet i `public/maps/NOTICE.md`. Det er et generaliseret landeoversigtskort, ikke et gadekort eller en virksomhedsdatakilde. Leaflet-pan/zoom, bysøgning, clustering og farvede virksomhedsmarkører er bevaret. Bysøgning og rigtige virksomheder kræver fortsat deres egne datakilders tilgængelighed.
 
-**Aktivér mørkt gade-/detaljekort fra MapTiler:**
+**Aktivér lyst gade-/detaljekort fra MapTiler:**
 
 1. Opret/log ind på en konto på https://cloud.maptiler.com/ og vælg en plan, der tillader din forventede brug og trafik. Gennemgå MapTilers aktuelle vilkår og kvoter.
 2. Åbn **API keys**: https://cloud.maptiler.com/account/keys/ . Opret en særskilt nøgle til WebHunt via **New key** / **Create key**.
@@ -202,10 +202,10 @@ OpenStreetMaps standardfliser på `tile.openstreetmap.org` er helt fjernet fra a
 
    Bevar eksisterende Supabase-/Google-værdier. Nøglen er en browsernøgle og indgår i kortforespørgslerne; derfor er domænebegrænsning og kvoter nødvendige. Brug ikke en privat administrationsnøgle. `.env.local` er Git-ignoreret og må ikke committes. Send ikke nøglen i chat. Codex- og Codespaces-miljøvariabler er separate.
 5. Genstart udviklingsserveren. Hvis den kører i terminalen, tryk **Ctrl+C** og kør `npm run dev` igen. Ved automatisk baggrundsstart kan du vælge **F1 → Codespaces: Rebuild Container**, som bevarer projektets ignorerede lokale fil og genstarter appen. Produktionsserveren kræver et nyt `npm run build`, fordi `NEXT_PUBLIC_` indlejres ved build.
-6. Genindlæs browser-previewen. Kortet skal vise **MapTiler · mørkt detaljekort**. Ved HTTP 401/403 vises en tydelig adgangsfejl og det lokale oversigtskort; appen stopper nye kortforespørgsler i den session og skifter ikke til en anden ekstern leverandør. Kontrollér nøgle, origins, plan og kvote i MapTiler.
+6. Genindlæs browser-previewen. Kortet skal vise **MapTiler Streets Light · gader, bynavne og bygninger**. Ved HTTP 401/403 vises en tydelig adgangsfejl og det lokale oversigtskort; appen stopper nye kortforespørgsler i den session og skifter ikke til en anden ekstern leverandør. Kontrollér nøgle, origins, plan og kvote i MapTiler.
 
-MapTiler-layeren bruger den mørke `dataviz-v4-dark`-stil, 512 px rasterfliser og korrekt Leaflet zoom-offset. MapTiler- og OSM-kildeangivelse er med. Kortforespørgsler bruger almindelig browseridentitet, standard HTTP-cache og ægte origin-referrer. HTTP-status kontrolleres før billedet indlæses, så et 403-fejlbillede ikke kan vises som kort. TLS-/CORS-kontrol bevares; der er ingen serverproxy eller automatiske omgåelser.
+MapTiler-layeren indlæser `https://api.maptiler.com/maps/streets-v4/style.json` med den eksisterende `NEXT_PUBLIC_MAPTILER_KEY`. Efter kontrol af style.json bruges MapTilers tilhørende Streets v4-rasterfliser i Leaflet (512 px, zoom-offset −1), så bynavne, veje, gader og bygninger bevares på de relevante zoomniveauer. Stilen bliver ikke filtreret eller farvet mørk. Ved udbyderfejl vises en tydelig besked og det lokale oversigtskort. MapTiler- og OSM-kildeangivelse bevares. Nøglen tilføjes kun til MapTilers egen origin. Der bruges almindelig browseridentitet og ægte origin-referrer uden proxy eller omgåelser.
 
 **Virksomheder er uafhængige af basiskortet:** Den rigtige backendkontrol returnerede HTTP 503 med en ventetid, fordi Overpass ikke var tilgængelig og der ikke fandtes et brugbart rigtigt snapshot. Brugerfladen viser nu **Data ikke indlæst** og en streg i stedet for at præsentere fejlen som nul virksomheder. Genforsøgsknappen respekterer serverens ventetid. Der indsættes aldrig opfundne virksomheder.
 
-**Hent denne rettelse i dit eksisterende Codespace:** Åbn en ny terminal, kør `git pull --ff-only`, og genindlæs previewfanen. Hvis udviklingsserveren er stoppet, kør `npm run dev`. Du behøver ikke oprette et nyt Codespace.
+**Hent denne rettelse i dit eksisterende Codespace:** Åbn en ny terminal, kør `git pull --ff-only` og `npm ci`. Stop den eksisterende udviklingsserver med **Ctrl+C**, kør `npm run dev`, og genindlæs previewfanen med **Ctrl+Shift+R**. Den eksisterende `.env.local` bevares, og samme MapTiler-nøgle bruges fortsat. Du behøver ikke oprette et nyt Codespace.

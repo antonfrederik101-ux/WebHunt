@@ -307,3 +307,30 @@ test("unavailable company data is not presented as zero Danish businesses and re
     "Prøv igen om",
   );
 });
+
+test("light theme keeps readable surfaces, mint actions and status text", async ({
+  page,
+}) => {
+  await fixture(page);
+  await expect(page.locator(".filter-sidebar")).toHaveCSS(
+    "background-color",
+    "rgb(255, 255, 255)",
+  );
+  await expect(page.locator(".main-content")).toHaveCSS(
+    "background-color",
+    "rgb(243, 246, 245)",
+  );
+  await expect(
+    page.getByRole("button", { name: "Find potentielle kunder" }),
+  ).toHaveCSS("background-color", "rgb(140, 230, 191)");
+  await page.getByRole("button", { name: "Virksomheder", exact: true }).click();
+  await page.locator(".company-row").click();
+  await expect(page.locator(".business-drawer")).toHaveCSS(
+    "background-color",
+    "rgb(255, 255, 255)",
+  );
+  await page.getByLabel("DIN VURDERING").selectOption("improve");
+  await expect(
+    page.locator(".business-drawer .status-badge").first(),
+  ).toHaveCSS("color", "rgb(145, 98, 11)");
+});

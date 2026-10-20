@@ -1279,7 +1279,7 @@ export default function HuntApp() {
                 </p>
                 <p>
                   {process.env.NEXT_PUBLIC_MAPTILER_KEY
-                    ? "MapTiler er konfigureret til mørke detaljekort. Hvis udbyderen afviser adgang, stoppes forespørgslerne, og oversigtskortet vises."
+                    ? "MapTiler Streets Light er konfigureret med bynavne, gader og bygninger. Hvis udbyderen afviser adgang, stoppes forespørgslerne, og oversigtskortet vises."
                     : "For gade- og detaljekort skal administratoren oprette en MapTiler-konto, vælge en passende plan og konfigurere NEXT_PUBLIC_MAPTILER_KEY med domænebegrænsning."}
                 </p>
                 <a
@@ -1668,7 +1668,7 @@ function PageTitle({
 }
 function StatusBadge({ status }: { status: Status }) {
   return (
-    <span className="status-badge" style={{ color: statuses[status].color }}>
+    <span className="status-badge" data-status={status}>
       <i
         className="status-dot"
         style={{ background: statuses[status].color }}

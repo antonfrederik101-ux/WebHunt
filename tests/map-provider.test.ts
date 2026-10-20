@@ -6,12 +6,18 @@ test("no key means no third-party tile requests or fabricated credentials", () =
   assert.equal(mapProvider(undefined), null);
   assert.equal(mapProvider("  "), null);
 });
-test("licensed MapTiler raster configuration encodes its public key and preserves both attributions", () => {
+test("licensed MapTiler Streets v4 style configuration encodes its public key and preserves both attributions", () => {
   const p = mapProvider("test key&x=1")!;
-  assert.ok(p.url.startsWith("https://api.maptiler.com/maps/dataviz-v4-dark/"));
-  assert.ok(p.url.endsWith("key=test%20key%26x%3D1"));
-  assert.equal(p.tileSize, 512);
-  assert.equal(p.zoomOffset, -1);
+  assert.ok(
+    p.styleUrl.startsWith(
+      "https://api.maptiler.com/maps/streets-v4/style.json?",
+    ),
+  );
+  assert.ok(p.styleUrl.endsWith("key=test%20key%26x%3D1"));
+  assert.equal(
+    p.url,
+    "https://api.maptiler.com/maps/streets-v4/{z}/{x}/{y}.png?key=test%20key%26x%3D1",
+  );
   assert.match(p.attribution, /MapTiler/);
   assert.match(p.attribution, /OpenStreetMap contributors/);
 });
