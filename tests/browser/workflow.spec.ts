@@ -3,11 +3,11 @@ import { test, expect } from "@playwright/test";
 const record = {
   id: "node/42",
   name: "Testvirksomhed (testfixture)",
-  lat: 55.6761,
-  lon: 12.5683,
+  lat: 54.7691,
+  lon: 11.8743,
   address: "Testvej 1",
-  city: "København",
-  postcode: "1000",
+  city: "Nykøbing Falster",
+  postcode: "4800",
   category: "Bager",
   phone: "+4512345678",
   website: "https://example.com/",
@@ -261,6 +261,7 @@ test("local Denmark map renders without any third-party tile provider when no ke
       forbidden.push(new URL(r.url()).hostname);
   });
   await fixture(page);
+  await page.getByRole("button", { name: "Vis hele Danmark", exact: true }).click();
   await expect(
     page.locator(".leaflet-country-context-pane path").first(),
   ).toBeVisible();

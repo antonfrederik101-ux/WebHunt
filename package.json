@@ -11,8 +11,10 @@
     "test:e2e": "playwright test",
     "format": "prettier --write app components lib tests playwright.config.ts",
     "check:config": "node scripts/check-config.mjs",
-    "data:refresh": "node --use-env-proxy --import tsx scripts/refresh-data.ts",
-    "prebuild": "npm run check:config"
+    "data:refresh": "node scripts/data-refresh.mjs",
+    "prebuild": "npm run check:config",
+    "data:setup": "python3 -m venv .data/import-venv && .data/import-venv/bin/pip install -r scripts/import-requirements.txt",
+    "data:import": "node --use-env-proxy --import tsx scripts/import-places.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.6.1",

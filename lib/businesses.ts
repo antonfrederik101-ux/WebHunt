@@ -1,3 +1,4 @@
+import { dataLicenseTexts } from "./data-licenses";
 import { Business, categories, statuses } from "./types";
 export type OSMElement = {
   type: string;
@@ -80,6 +81,9 @@ export function csv(leads: import("./types").Lead[]) {
         "Datakilde",
         "Kilde-URL",
         "Licens",
+        "Kildedatasæt",
+        "Kildeudgivelse",
+        "Licenstekst",
       ],
       ...leads.map((l) => [
         l.business.name,
@@ -92,9 +96,15 @@ export function csv(leads: import("./types").Lead[]) {
         l.notes,
         l.contact_status,
         l.created_at,
-        "© OpenStreetMap-bidragsydere",
+        l.business.source || "© OpenStreetMap-bidragsydere",
         l.business.sourceUrl,
-        "ODbL — https://www.openstreetmap.org/copyright",
+        l.business.licenses?.join("; ") ||
+          "ODbL — https://www.openstreetmap.org/copyright",
+        l.business.sourceDatasets?.join("; ") || "",
+        l.business.sourceRelease || "",
+        (l.business.licenses || [])
+          .map((license) => dataLicenseTexts[license] || "")
+          .join("\n\n"),
       ]),
     ]
       .map((row) => row.map(cell).join(";"))

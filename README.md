@@ -22,8 +22,8 @@ Kort og virksomhedssøgning kræver ingen API-nøgle. Uden Supabase kan du bruge
 ## Funktioner
 
 - Danmarkskort inkl. Bornholm, øer, zoom, panorering, clustering og klikbare virksomhedsmarkører.
-- Landsoversigten henter et begrænset udvalg omkring København, Aarhus, Odense, Aalborg, Nykøbing Falster, Roskilde, Næstved, Esbjerg og Rønne. Zoom ind for geografisk søgning i resten af Danmark. Det er ikke en komplet CVR-database.
-- Overpass søger efter navngivne butikker, håndværkere, kontorer, udvalgte restaurations-/sundhedsvirksomheder og lokalt også hoteller. Højst 600 virksomheder pr. lokalt udsnit, eller 60 pr. by i landsoversigten. Kun virksomheder inden for Danmarks OSM-administrationsområde medtages.
+- Virksomheder læses fra egen vedvarende database. Første importområde er Nykøbing Falster; flere områder kan tilføjes via importjobbet. Det er ikke et komplet CVR-register.
+- Overture Places importeres separat fra kortet. Zoom og søgning kontakter kun egen database, aldrig Overpass. Højst 600 virksomheder pr. udsnit; dækning og dato vises tydeligt.
 - Navn, adresse, by og postnummer filtreres blandt indlæste virksomheder. Enter eller “Søg som sted” søger en dansk by/postnummer via Nominatim. Kendte bygenveje kræver ikke geokodning.
 - Branche- og statusfiltre; “Find potentielle kunder” viser røde/orange vurderinger. Alle importerede virksomheder starter grå, også når en webadresse mangler.
 - Virksomhedspanel med kildelink, kontaktkopiering, telefon-/hjemmesidelink, manuel status, analyse og gem som lead.
@@ -62,41 +62,21 @@ Uden nøgle afprøves Googles anonyme kvote, som ofte er begrænset. For stabil 
 
 Analysen bruger mobilstrategi og kategorierne performance, SEO og accessibility. Scoren er gennemsnittet af de returnerede kategorier (0–100); performance skal være til stede. Grøn kræver score ≥85 og HTTPS. Andre gennemførte analyser bliver orange. Resultater forklares, dateres og caches i op til 24 timer. En teknisk score er ikke en vurdering af design, juridisk efterlevelse eller en garanti for mobilvenlighed. Timeout/API-fejl giver ingen score og status “Ikke undersøgt”. Analysen kan tage op til 100 sekunder; hostingen skal understøtte dette eller bruge en jobkø før større drift.
 
-## Netværk og ansvarlig brug af datakilder
+## Virksomhedsdata, database og licens
 
-Tillad HTTPS til:
+Læs [database- og kildebeslutningen](docs/business-data.md) for Overture Places,
+undersøgelsen af danske registre, importkommandoer, licenser, vedvarende SQLite og
+Supabase som fælles database. Den nye API bruger ikke længere Overpass.
 
-| Domæne | Formål |
-| --- | --- |
-| `overpass-api.de`, `overpass.private.coffee` | Virksomhedsdata / alternativ offentlig Overpass-instans |
-| `api.maptiler.com` | Valgfrit licenseret Streets Light-detaljekort med egen MapTiler-nøgle |
-| `nominatim.openstreetmap.org` | Danske stedssøgninger |
-| `www.googleapis.com` | PageSpeed Insights |
-| `DIT-PROJEKT.supabase.co` | Login/database; præcist projektdomæne foretrækkes |
-| `registry.npmjs.org` | Installation |
+Kortet starter ved Nykøbing Falster. **Uden en verificeret import vises en tydelig
+besked; der indsættes ingen testvirksomheder.** Overpass-ventetider blokerer ikke
+kortet. Eksisterende private leads og historiske OSM-kilder bevares med deres egne
+kildeangivelser.
 
-Cloudmiljøets kladde indeholder de ekstra domæner. At gemme kladden aktiverer ikke nødvendigvis netværksændringer i den kørende instans: gem miljøindstillingerne, og prøv igen. Publicér derefter miljøet, når du ønsker et genbrugeligt snapshot. Supabase- og Google-nøgler leveres separat og sikkert; send ikke hemmeligheder i chat.
-
-Overpass-resultater gemmes atomisk som JSON i `.data/osm/` (eller `WEBHUNT_CACHE_DIR`). Kun offentlige virksomhedsdata ligger her, aldrig login, private leads eller nøgler. Snapshotfilerne må ikke committes. Friske resultater genbruges i 24 timer, også efter servergenstart. Ved driftsfejl kan højst syv dage gamle resultater bruges med synlig dato og advarsel. For andre kortudsnit bruges kun geografisk matchende poster, tydeligt mærket som delvis dækning. Uden et rigtigt snapshot og uden netadgang vises en fejl — ikke testvirksomheder.
-
-Identiske samtidige forespørgsler samles. En fillås tillader kun én OSM-opdatering ad gangen på det delte datalager. Ved kapacitetsfejl ventes eksponentielt fra to minutter til 30 minutter; en længere `Retry-After` respekteres. Fejlpauser gemmes på disk og overlever genstart. Den anden offentlige instans bruges sekventielt, ikke parallelt. Forespørgsler bruger konkrete indekserede OSM-tags, et begrænset geografisk område og særskilte resultatlofter for hver oversigtsby. En tom, gennemført søgning caches; en timeout eller delvist svar caches ikke som et tomt resultat.
-
-Kortbevægelser har 600 ms debounce, og kortudsnit afrundes til et lille geografisk gitter for bedre cachegenbrug. Der er IP-begrænsning (virksomheder 24/minut, steder 10/minut, analyse 5/5 minutter). Nominatim begrænses til højst én udgående forespørgsel pr. 1,1 sekund pr. proces og bruges ikke til autocomplete. Der foretages ingen forudindlæsning eller offline-download af udbydernes kortfliser. Det lokale oversigtskort er separat public-domain vektorgeometri fra Natural Earth; det er ikke kopierede OSM-fliser.
-
-Opvarm eller genopfrisk et begrænset landsudvalg med `npm run data:refresh`. Kommandoen bruger samme cache, lås og ventetider som appen og omgår aldrig en aktiv fejlpause.
-
-**Stabil drift:** Offentlige Overpass-servere tilbyder ingen SLA, og en ny installation uden cache kan derfor være utilgængelig, hvis alle kilder er nede. Ved offentlig eller større drift skal du bruge en aftalt dataleverandør eller egen Overpass-instans og et vedvarende datalager:
-
-```dotenv
-OVERPASS_API_URL=https://DIN-EGEN-TJENESTE.example/api/interpreter
-WEBHUNT_CACHE_DIR=/var/lib/webhunt/osm
-```
-
-Sæt kun en URL, du har ret til at bruge, og tillad det præcise værtsnavn i netværksindstillingerne. Ved en konfigureret URL bruges kun denne kilde. Gennemgå leverandørens kapacitets- og licensvilkår. På en server uden et vedvarende filsystem forsvinder cachen mellem instanser; brug en persistent volume eller flyt cacheadapteren til fælles objektlager/database. Ved flere servere kræves et fælles datalager og en fælles rate limiter/jobkø. De nuværende IP-grænser og Nominatim-cache er stadig proceslokale. Stol kun på forwarding-headere fra din egen reverse proxy.
-
-De aktuelle offentlige instanser er bekræftet mod [Overpass Turbos konfiguration](https://github.com/tyrasd/overpass-turbo/blob/master/js/configs.ts). Overhold [OSM tile policy](https://operations.osmfoundation.org/policies/tiles/), [Nominatim policy](https://operations.osmfoundation.org/policies/nominatim/) og den valgte Overpass-operatørs vilkår. Denne løsning benytter åbne OSM-data og ingen scraping af Google Maps eller beskyttede CVR-databaser.
-
-OSM-data er © OpenStreetMap-bidragsydere under [ODbL](https://www.openstreetmap.org/copyright). Bevar kildeangivelse og gennemgå licensforpligtelser ved videreudgivelse af datasæt. Eksport giver ikke tilladelse til uanmodet markedsføring. Brug kun data med et lovligt formål og slet unødvendige personoplysninger.
+Webserveren behøver fortsat adgang til `api.maptiler.com`, `nominatim.openstreetmap.org`,
+`www.googleapis.com` og dit Supabase-projekt. Importjobbet behøver separat adgang til
+`stac.overturemaps.org`, `overturemaps-us-west-2.s3.amazonaws.com` og
+`overturemaps-us-west-2.s3.us-west-2.amazonaws.com`. Installation benytter npm/PyPI.
 
 ## Test
 
@@ -107,13 +87,13 @@ npm run build
 npm run test:e2e      # starter produktionsserveren på port 3000
 ```
 
-Browserprøverne bruger Chromium på `/usr/bin/chromium` i dette cloudmiljø. På andre maskiner: sæt `CHROMIUM_PATH` til en lokal Chrome/Chromium-installation. Browserprøverne bruger eksplicitte testfixtures og blokerer kortfliser; de beviser UI-funktioner, ikke live OSM/Google-adgang eller Supabase-isolation. Fixtures bruges aldrig i den kørende app. `npm run format` formaterer kildekoden med Prettier.
+Browserprøverne bruger Chromium på `/usr/bin/chromium` i dette cloudmiljø. På andre maskiner: sæt `CHROMIUM_PATH` til en lokal Chrome/Chromium-installation. Browserprøverne bruger eksplicitte testfixtures og blokerer kortfliser; de beviser UI-funktioner, ikke live Overture/Google-adgang eller Supabase-isolation. Fixtures bruges aldrig i den kørende app. `npm run format` formaterer kildekoden med Prettier.
 
 ## Projektstruktur
 
 - `app/`: Next App Router, layout og API-ruter for geografisk data, geokodning og analyse.
 - `components/DenmarkMap.tsx`: klientindlæst Leaflet med clustering; ingen Leaflet i SSR.
-- `components/RadarApp.tsx`: kort, virksomhedsvisning, leads, statistik, indstillinger og Auth.
+- `components/HuntApp.tsx`: kort, virksomhedsvisning, leads, statistik, indstillinger og Auth.
 - `lib/`: fælles typer, datanormalisering, sikker URL-/CSV-behandling, analyse og Supabase-klient.
 - `supabase/schema.sql`: database og ejerbaserede adgangspolitikker.
 - `tests/`: domænetests og browserforløb.
@@ -178,7 +158,7 @@ Kortvisning og lokale leads kan testes uden Supabase-konfiguration. Cloudmiljøe
 
 - Vælg **Terminal → New Terminal**, kør `cp .env.example .env.local` én gang, og åbn `.env.local` i filoversigten. Overskriv ikke en eksisterende konfiguration. Indsæt dine egne Supabase-værdier; filen er Git-ignoreret. Genstart `npm run dev`, hvis serveren allerede kører, så den læser de nye værdier.
 - I Supabase kører du `supabase/schema.sql` i **SQL Editor**. Brug derefter den konkrete Codespaces-browseradresse som **Site URL** og tilføj dens `/auth/callback` og `/auth/callback?recovery=1` under **Authentication → URL Configuration → Redirect URLs**. Previewdomænet er specifikt for dit codespace; kopiér det fra den åbne fane.
-- Kontrollér **Indstillinger → Test forbindelsen** i WebHunt. Appens OSM-datakilder kan stadig være overbelastede; det er uafhængigt af, om previewserveren kan åbnes. Datafejl må ikke forveksles med forbindelsesfejlen `ERR_CONNECTION_REFUSED`.
+- Kontrollér **Indstillinger → Test forbindelsen** i WebHunt. Virksomheder kræver en færdig import til eget katalog; det er uafhængigt af, om previewserveren kan åbnes. Datafejl må ikke forveksles med forbindelsesfejlen `ERR_CONNECTION_REFUSED`.
 
 Hvis browsereditoren er åben, men en gammel codespace ikke bruger den nye opsætning, åbn kommandopaletten med **F1**, vælg **Codespaces: Rebuild Container**, og følg porttrinnene igen. Codespaces er et udviklingsmiljø, ikke permanent offentlig webhosting.
 
@@ -206,6 +186,6 @@ OpenStreetMaps standardfliser på `tile.openstreetmap.org` er helt fjernet fra a
 
 MapTiler-layeren indlæser `https://api.maptiler.com/maps/streets-v4/style.json` med den eksisterende `NEXT_PUBLIC_MAPTILER_KEY`. Efter kontrol af style.json bruges MapTilers tilhørende Streets v4-rasterfliser i Leaflet (512 px, zoom-offset −1), så bynavne, veje, gader og bygninger bevares på de relevante zoomniveauer. Stilen bliver ikke filtreret eller farvet mørk. Ved udbyderfejl vises en tydelig besked og det lokale oversigtskort. MapTiler- og OSM-kildeangivelse bevares. Nøglen tilføjes kun til MapTilers egen origin. Der bruges almindelig browseridentitet og ægte origin-referrer uden proxy eller omgåelser.
 
-**Virksomheder er uafhængige af basiskortet:** Den rigtige backendkontrol returnerede HTTP 503 med en ventetid, fordi Overpass ikke var tilgængelig og der ikke fandtes et brugbart rigtigt snapshot. Brugerfladen viser nu **Data ikke indlæst** og en streg i stedet for at præsentere fejlen som nul virksomheder. Genforsøgsknappen respekterer serverens ventetid. Der indsættes aldrig opfundne virksomheder.
+**Virksomheder er uafhængige af basiskortet:** Det nye katalog læser Overture-importer fra egen database uden Overpass. Se [datavejledningen](docs/business-data.md). En manglende import vises som **Data ikke indlæst**, aldrig som et bevis på nul virksomheder.
 
 **Hent denne rettelse i dit eksisterende Codespace:** Åbn en ny terminal, kør `git pull --ff-only` og `npm ci`. Stop den eksisterende udviklingsserver med **Ctrl+C**, kør `npm run dev`, og genindlæs previewfanen med **Ctrl+Shift+R**. Den eksisterende `.env.local` bevares, og samme MapTiler-nøgle bruges fortsat. Du behøver ikke oprette et nyt Codespace.

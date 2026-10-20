@@ -1,7 +1,9 @@
+import { dataLicenseTexts } from "@/lib/data-licenses";
 import { NextRequest, NextResponse } from "next/server";
 import { parseBounds } from "@/lib/businesses";
 import { rateLimit } from "@/lib/server";
-import { osmService, SourceUnavailable } from "@/lib/osm-service";
+import { CatalogNotReady } from "@/lib/business-catalog";
+import { catalogBusinesses } from "@/lib/catalog-service";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 export async function GET(req: NextRequest) {
@@ -14,24 +16,26 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: (e as Error).message }, { status: 400 });
   }
   try {
-    const result = await osmService.get(bounds);
-    return NextResponse.json(result, {
-      headers: { "Cache-Control": "private, no-store" },
-    });
+    const result = await catalogBusinesses(bounds);
+    return NextResponse.json(
+      { ...result, licenseTexts: dataLicenseTexts },
+      {
+        headers: { "Cache-Control": "private, no-store" },
+      },
+    );
   } catch (e) {
-    const retry = e instanceof SourceUnavailable ? e.retryAfter : 120;
     return NextResponse.json(
       {
         error:
-          e instanceof SourceUnavailable
+          e instanceof CatalogNotReady
             ? e.message
             : "Virksomhedsdata kunne ikke læses. Kontrollér serverens datalager.",
         businesses: [],
-        retryAfter: retry,
+        retryAfter: 0,
       },
       {
         status: 503,
-        headers: { "Retry-After": String(retry), "Cache-Control": "no-store" },
+        headers: { "Cache-Control": "no-store" },
       },
     );
   }

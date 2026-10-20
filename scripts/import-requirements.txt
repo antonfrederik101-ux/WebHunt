@@ -1,0 +1,3 @@
+# Official Overture client; isolated from application runtime.
+overturemaps==1.0.2
+shapely==2.1.2

@@ -12,6 +12,12 @@ export type Business = {
   website: string;
   status: Status;
   sourceUrl: string;
+  source?: string;
+  sourceId?: string;
+  licenses?: string[];
+  sourceDatasets?: string[];
+  sourceRelease?: string;
+  importedAt?: string;
 };
 export type Analysis = {
   score: number;

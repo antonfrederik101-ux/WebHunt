@@ -83,15 +83,18 @@ export default function HuntApp() {
     [query, setQuery] = useState(""),
     [category, setCategory] = useState("Alle brancher"),
     [filters, setFilters] = useState<Status[]>([]),
-    [target, setTarget] = useState(cities[0]),
-    [area, setArea] = useState("Danmark"),
+    [target, setTarget] = useState(
+      cities.find((c) => c.name === "Nykøbing Falster") || cities[0],
+    ),
+    [area, setArea] = useState("Nykøbing Falster"),
     [bbox, setBbox] = useState(""),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [retrySeconds, setRetrySeconds] = useState(0),
-    [overview, setOverview] = useState(true),
+    [overview, setOverview] = useState(false),
     [capped, setCapped] = useState(false),
     [fetchedAt, setFetchedAt] = useState(""),
+    [dataSource, setDataSource] = useState("Overture Maps · egen database"),
     [dataWarning, setDataWarning] = useState(""),
     [supabaseHealth, setSupabaseHealth] = useState<SupabaseHealth | null>(null),
     [healthBusy, setHealthBusy] = useState(false),
@@ -264,6 +267,7 @@ export default function HuntApp() {
       setOverview(d.overview);
       setCapped(d.limited);
       setFetchedAt(d.fetchedAt);
+      setDataSource(d.source || "Overture Maps · egen database");
       setDataWarning(d.warning || "");
     } catch (e) {
       if (n === seq.current)
@@ -779,7 +783,7 @@ export default function HuntApp() {
                 <div>
                   <span className="eyebrow">OVERBLIK</span>
                   <h2>
-                    Hele Danmark. <span>Alle muligheder.</span>
+                    {area}. <span>Find muligheder.</span>
                   </h2>
                 </div>
                 <button
@@ -796,7 +800,7 @@ export default function HuntApp() {
                     ? "Henter virksomheder"
                     : error
                       ? "Datakilden er utilgængelig"
-                      : "Data fra OpenStreetMap"}
+                      : dataSource}
                 </div>
               </div>
               <section className="map-region">
@@ -817,7 +821,7 @@ export default function HuntApp() {
                       <strong>{area}</strong>
                       <small>
                         {overview
-                          ? "Udvalgte virksomheder i 9 byområder"
+                          ? "Importerede virksomheder i databasen"
                           : "Virksomheder i kortudsnittet"}
                       </small>
                     </div>
@@ -877,7 +881,7 @@ export default function HuntApp() {
                 {loading && (
                   <div className="map-notice">
                     <LoaderCircle size={16} className="spin" /> Henter rigtige
-                    virksomheder fra OpenStreetMap…
+                    virksomheder fra egen database…
                   </div>
                 )}
                 {error && (
@@ -960,8 +964,8 @@ export default function HuntApp() {
                 <Info size={14} />
                 <span>
                   {overview
-                    ? "Oversigten viser et begrænset udvalg i 9 byområder. Zoom ind for lokal søgning i hele Danmark."
-                    : "Kun OSM-registrerede virksomheder i det senest indlæste kortudsnit. Dækningen er ufuldstændig."}
+                    ? "Oversigten viser importerede virksomheder. Flere områder kan tilføjes uden at ændre kortet."
+                    : "Viser importerede Overture-virksomheder i kortudsnittet. Første importområde er Nykøbing Falster; dækningen er ufuldstændig."}
                   {capped ? " Maks. 600 resultater – zoom tættere på." : ""}
                 </span>
                 <button onClick={() => setTab("Indstillinger")}>
@@ -1089,7 +1093,7 @@ export default function HuntApp() {
               <PageTitle
                 eyebrow="DIT OVERBLIK"
                 title="Muligheder i tal"
-                description={`Baseret på ${all.length} faktisk indlæste virksomheder · ${area} · ${overview ? "udvalg i 9 byområder" : "seneste kortudsnit"}.`}
+                description={`Baseret på ${all.length} faktisk indlæste virksomheder · ${area} · ${overview ? "importerede områder" : "seneste kortudsnit"}.`}
               />
               <div className="stats-grid">
                 <Metric
@@ -1165,7 +1169,7 @@ export default function HuntApp() {
               <div className="inline-info">
                 <Info size={18} />
                 <span>
-                  Dette er ikke en landsdækkende optælling. OpenStreetMap har
+                  Dette er ikke en landsdækkende optælling. Overture har
                   ufuldstændig dækning, og manglende webadresser er ikke
                   dokumentation for manglende hjemmesider.
                   {fetchedAt &&
@@ -1301,28 +1305,28 @@ export default function HuntApp() {
                   <h3>Datakilder og dækning</h3>
                 </div>
                 <p>
-                  Virksomheder hentes fra OpenStreetMap via Overpass API.
-                  Oversigten henter et udvalg omkring ni danske byer. Zoom ind
-                  for at søge i det aktuelle kortudsnit, også på Bornholm og de
-                  mindre øer. Højst 600 virksomheder pr. udsnit.
+                  Virksomheder læses fra WebHunts egen database. Overture Places
+                  importeres separat fra kortvisningen; en ekstern driftsfejl
+                  fjerner ikke tidligere importerede virksomheder. Første område
+                  er Nykøbing Falster. Andre områder er ikke dækket, før de er
+                  importeret.
                 </p>
                 <p>
-                  Registreringen er frivillig og ufuldstændig. Manglende
-                  telefon, adresse eller hjemmeside betyder kun, at oplysningen
-                  ikke er registreret. Ingen virksomheder får rød status
-                  automatisk.
+                  Overture er en stedfortegnelse og ikke et komplet
+                  CVR-register. Manglende kontaktoplysninger betyder kun, at de
+                  ikke findes i kilden. Nye virksomheder starter altid som “Ikke
+                  undersøgt”.
                 </p>
                 <p>
-                  © OpenStreetMap-bidragsydere ·{" "}
+                  Overture Maps Foundation og de oprindelige dataleverandører.
+                  Licens og udgivelse bevares pr. virksomhed og i CSV-eksporten.
                   <a
-                    href="https://www.openstreetmap.org/copyright"
+                    href="/licenses/overture-notice.txt"
                     target="_blank"
                     rel="noreferrer"
                   >
-                    ODbL-licens <ExternalLink size={12} />
+                    Kilder og licenser <ExternalLink size={12} />
                   </a>
-                  . Eksporterede leads indeholder OSM-data og skal behandles med
-                  kildeangivelse og respekt for licensen.
                 </p>
               </section>
               <section className="panel">
@@ -1353,12 +1357,12 @@ export default function HuntApp() {
                   leads.
                 </p>
                 <p>
-                  Søgninger sendes til OpenStreetMaps datatjenester.
-                  Hjemmesideadresser sendes til Google, når du vælger at
-                  analysere. Oversigtskortet indlæses lokalt fra Natural Earth
-                  (public domain). Hvis MapTiler er konfigureret, sendes
-                  kortforespørgsler direkte til MapTiler. OpenStreetMaps
-                  standardkortfliser bruges ikke.
+                  Virksomhedssøgninger læses fra egen database. Kun bysøgning
+                  efter nye stednavne sendes til Nominatim. Hjemmesideadresser
+                  sendes til Google, når du vælger at analysere. Oversigtskortet
+                  indlæses lokalt fra Natural Earth (public domain). Hvis
+                  MapTiler er konfigureret, sendes kortforespørgsler direkte til
+                  MapTiler. OpenStreetMaps standardkortfliser bruges ikke.
                 </p>
               </section>
             </div>
@@ -1588,10 +1592,18 @@ export default function HuntApp() {
                   target="_blank"
                   rel="noreferrer"
                 >
-                  Se virksomhedens kilde i OpenStreetMap{" "}
+                  Se virksomhedens kilde i {current.source || "OpenStreetMap"}{" "}
                   <ExternalLink size={13} />
                 </a>
               </div>
+              {current.sourceRelease && (
+                <p className="micro" style={{ padding: "0 24px" }}>
+                  Overture-udgivelse: {current.sourceRelease}. Kilder:{" "}
+                  {current.sourceDatasets?.join(", ")}. Licens:{" "}
+                  {current.licenses?.join(", ")}. Oplysningerne kan være
+                  ufuldstændige eller forældede.
+                </p>
+              )}
               <div className="drawer-footer">
                 <button
                   className="button primary"

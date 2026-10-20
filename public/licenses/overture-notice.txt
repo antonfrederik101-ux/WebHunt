@@ -1,0 +1,20 @@
+WebHunt — Overture Places
+Source: Overture Maps Foundation, https://overturemaps.org/
+Documentation: https://docs.overturemaps.org/guides/places/
+Attribution: https://docs.overturemaps.org/attribution/
+
+This dataset is a filtered and normalized geographic extract of Overture Places,
+not a complete Danish company register. Each record retains its original GERS ID,
+source datasets, source entries, release, import timestamp and applicable licenses.
+WebHunt changes: geographic/business filtering, normalized field names and category
+labels, safe website URLs. Missing website information is not evidence of absence.
+
+Meta, Microsoft, PinMeTo, Krick, RenderSEO, DAC, BrightQuery:
+CDLA-Permissive-2.0 — https://cdla.dev/permissive-2-0/
+Foursquare: Copyright 2024 Foursquare Labs, Inc. All rights reserved.
+Apache-2.0 — https://www.apache.org/licenses/LICENSE-2.0
+Foursquare data was transformed to the Overture schema by Overture.
+AllThePlaces: CC0-1.0 — https://creativecommons.org/publicdomain/zero/1.0/
+
+License texts accompany this dataset. Unknown source licenses block import.
+Imported data is independent of MapTiler basemap licensing and historical OSM leads.
