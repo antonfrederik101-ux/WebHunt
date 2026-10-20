@@ -1,0 +1,19 @@
+{
+  "name": "WebHunt online preview",
+  "image": "node:24-bookworm",
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "WebHunt",
+      "onAutoForward": "openBrowser",
+      "requireLocalPort": true
+    }
+  },
+  "postCreateCommand": "npm ci --cache /tmp/webhunt-npm-cache",
+  "postStartCommand": "bash scripts/start-preview.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": ["dbaeumer.vscode-eslint"]
+    }
+  }
+}
