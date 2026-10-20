@@ -127,7 +127,7 @@ Et publiceret **Codex-cloudmiljø er et udviklingssnapshot**, ikke en offentlig 
 
 ### Gem de aktuelle projektfiler på GitHub
 
-GitHub-repositoryet var tomt ved kontrollen. Følgende skal køres i en terminal, som har adgang til de nuværende projektfiler — ikke i en ny tom klon:
+Kildekoden er nu committet og pushet til `main` i GitHub-repositoryet. Du kan gå direkte til Codespaces-vejledningen nedenfor. Følgende viser, hvordan kildekode gemmes fra en terminal med adgang til projektfilerne:
 
 ```bash
 cd /workspace/WebHunt
@@ -168,7 +168,7 @@ En browser på din computer kan ikke åbne Codex-maskinens `localhost`. Denne Co
 
 Projektet indeholder nu `.devcontainer/devcontainer.json`, som vælger Node 24, installerer afhængighederne, starter WebHunt og videresender port 3000. `next.config.ts` tillader den konkrete Codespaces-previewhost til udviklingsfilerne. Porten behøver ikke gøres offentlig.
 
-1. Gem først kildekoden i GitHub-repositoryet. Hvis en direkte push fra Codex ikke lykkes, hent den opdaterede `WebHunt-source.zip`, pak den ud, og brug GitHub → **Add file → Upload files** (eller **uploading an existing file** i et tomt repository). Upload indholdet af mappen `WebHunt`, inklusive `.devcontainer`, `.gitignore`, `.nvmrc` og `.env.example`, og vælg **Commit changes**. Upload ikke ZIP-filen som én fil.
+1. Kildekoden og Codespaces-konfigurationen ligger nu på `main` i GitHub. Fortsæt til trin 2. Som reservevej ved en senere overførsel, hvis direkte push ikke lykkes, hent den opdaterede `WebHunt-source.zip`, pak den ud, og brug GitHub → **Add file → Upload files** (eller **uploading an existing file** i et tomt repository). Upload indholdet af mappen `WebHunt`, inklusive `.devcontainer`, `.gitignore`, `.nvmrc` og `.env.example`, og vælg **Commit changes**. Upload ikke ZIP-filen som én fil.
 2. På repositoryets forside vælger du den grønne **Code**-knap → fanen **Codespaces** → **Create codespace on main**. Du kan også åbne https://codespaces.new/antonfrederik101-ux/WebHunt og vælge **Create codespace**, når filerne er gemt.
 3. Vent på, at browsereditoren åbner, og containeren installerer afhængighederne. Appens port 3000 åbnes automatisk, når klienten understøtter automatisk åbning.
 4. Hvis ingen fane åbner: Vælg **Ports** i nederste panel i editoren. Hvis panelet er skjult, vælg **Terminal → New Terminal** og derefter fanen **Ports**. Find rækken **3000 / WebHunt**, peg på den, og klik på globusikonet **Open in Browser**. Alternativt højreklik på rækken og vælg **Open in Browser**. Brug adressen, GitHub åbner — ikke `localhost` på din computer. Behold portens synlighed **Private** og brug din egen GitHub-login-session.
