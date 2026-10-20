@@ -154,3 +154,43 @@ test("CSV preserves Overture source and per-record licenses instead of falsely m
   assert.match(output, /CDLA-Permissive-2.0/);
   assert.doesNotMatch(output, /ODbL/);
 });
+
+test("official metaPlaces and msftPlaces dataset IDs preserve provenance and map to documented provider licenses", () => {
+  const f = feature();
+  f.properties!.sources = [
+    { dataset: "metaPlaces", record_id: "meta-source-fixture", property: "" },
+    {
+      dataset: "msftPlaces",
+      record_id: "msft-source-fixture",
+      property: "/properties/brand",
+    },
+  ];
+  const snapshot = prepareSnapshot([f], PILOT, "2026-09-23.1");
+  assert.equal(snapshot.records.length, 1);
+  assert.equal(snapshot.rejected, 0);
+  const b = snapshot.records[0];
+  assert.deepEqual(b.sourceDatasets, ["metaPlaces", "msftPlaces"]);
+  assert.deepEqual(b.sourceDetails, f.properties!.sources);
+  assert.deepEqual(b.licenses, ["CDLA-Permissive-2.0"]);
+  assert.equal(b.status, "unknown");
+});
+test("source alias support still rejects undocumented and restricted dataset IDs with an actionable report", () => {
+  for (const dataset of [
+    "metaPlacesUnverified",
+    "msftPlacesExperimental",
+    "Overture",
+    "Foursquare",
+  ]) {
+    const f = feature();
+    f.properties!.sources = [{ dataset }];
+    assert.throws(
+      () => prepareSnapshot([f], PILOT, "2026-09-23.1"),
+      (error: Error) => {
+        assert.match(error.message, /Tidligere data er bevaret/);
+        assert.match(error.message, /"unknown_license":1/);
+        assert.ok(error.message.includes(dataset));
+        return true;
+      },
+    );
+  }
+});

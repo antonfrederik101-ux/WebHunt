@@ -16,3 +16,9 @@ Retrieved from the official OvertureMaps/docs GitHub repository, 2026-10-20.
 - Data from [AllThePlaces](https://alltheplaces.xyz/). Available under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/deed.en).
 
 WebHunt currently excludes Foursquare until the full linked upstream NOTICE can be verified and included. New or unknown providers are rejected, rather than assigned a guessed license.
+
+Official source identifiers `metaPlaces` and `msftPlaces` are mapped explicitly to
+Meta and Microsoft respectively, both under the existing CDLA-Permissive-2.0 policy.
+Original identifiers and source records are retained. Evidence: OvertureMaps/schema
+commit b53004401617a0709cd2ee3b872bb3672819078e, examples/places/place.yaml.
+No blanket license is assigned to unknown dataset identifiers.

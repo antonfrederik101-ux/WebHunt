@@ -64,8 +64,16 @@ export type ImportSnapshot = {
   records: CatalogBusiness[];
   // Records excluded deliberately; never replace an existing import with an accidental empty result.
   rejected: number;
+  rejectionReasons?: Record<string, number>;
 };
+// Official schema examples use source IDs, rather than provider display names:
+// https://github.com/OvertureMaps/schema/blob/b53004401617a0709cd2ee3b872bb3672819078e/examples/places/place.yaml
+const DATASET_ALIASES = new Map([
+  ["metaPlaces", "Meta"],
+  ["msftPlaces", "Microsoft"],
+]);
 export function sourceLicense(dataset: string): string | null {
+  dataset = DATASET_ALIASES.get(dataset) || dataset;
   // Foursquare requires its complete upstream NOTICE in addition to Apache-2.0.
   // Exclude until that notice has been fetched and reviewed for this distribution.
   if (/foursquare/i.test(dataset)) return null;
@@ -83,19 +91,23 @@ export function normalizePlace(
   region: Region,
   release: string,
   importedAt: string,
+  onReject?: (reason: string) => void,
 ): CatalogBusiness | null {
+  const reject = (reason: string): null => {
+    onReject?.(reason);
+    return null;
+  };
   const p = feature.properties,
     coordinates = feature.geometry?.coordinates;
   const id = feature.id || p?.id,
     name = p?.names?.primary?.trim();
+  if (!id || !name) return reject("missing_identity");
   if (
-    !id ||
-    !name ||
     feature.geometry?.type !== "Point" ||
     !coordinates ||
     coordinates.length < 2
   )
-    return null;
+    return reject("invalid_point");
   const [lon, lat] = coordinates,
     [w, s, e, n] = region.bounds;
   if (
@@ -106,16 +118,18 @@ export function normalizePlace(
     lat < s ||
     lat > n
   )
-    return null;
-  if (p?.operating_status === "permanently_closed") return null;
+    return reject("outside_region");
+  if (p?.operating_status === "permanently_closed") return reject("closed");
   const addresses = p?.addresses || [];
   const address = addresses.find((a) => a.country === "DK") || addresses[0];
   // In the small pilot there is no foreign territory. National imports require explicit country=DK.
-  if (address?.country && address.country !== "DK") return null;
-  if ((e - w) * (n - s) > 0.1 && address?.country !== "DK") return null;
+  if (address?.country && address.country !== "DK")
+    return reject("foreign_country");
+  if ((e - w) * (n - s) > 0.1 && address?.country !== "DK")
+    return reject("missing_danish_country");
   const kind =
     p?.basic_category || p?.taxonomy?.primary || p?.categories?.primary;
-  if (!kind) return null;
+  if (!kind) return reject("missing_category");
   const hierarchy = p?.taxonomy?.hierarchy || [];
   // Places includes mountains, schools and landmarks; those are not business prospects.
   if (
@@ -123,13 +137,13 @@ export function normalizePlace(
       hierarchy[0] || kind,
     )
   )
-    return null;
+    return reject("non_business");
   if (
     /^(mountain|peak|beach|park|bus_stop|cemetery|church|school|monument|memorial)$/.test(
       kind,
     )
   )
-    return null;
+    return reject("non_business");
   const sources = p?.sources || [];
   const datasets = [
     ...new Set(sources.map((v) => v.dataset || "").filter(Boolean)),
@@ -138,7 +152,8 @@ export function normalizePlace(
     ...new Set(datasets.map(sourceLicense).filter((v): v is string => !!v)),
   ];
   // Do not redistribute new/unknown providers under an assumed license.
-  if (!datasets.length || datasets.some((d) => !sourceLicense(d))) return null;
+  if (!datasets.length) return reject("missing_source");
+  if (datasets.some((d) => !sourceLicense(d))) return reject("unknown_license");
   return {
     id: `overture/${id}`,
     sourceId: id,
@@ -174,14 +189,28 @@ export function prepareSnapshot(
     throw new Error("Ugyldig Overture-udgivelse eller importdato.");
   const records = new Map<string, CatalogBusiness>();
   let rejected = 0;
+  const rejectionReasons: Record<string, number> = {};
+  const unknownDatasets: Record<string, number> = Object.create(null);
   for (const feature of features) {
-    const b = normalizePlace(feature, region, release, importedAt);
+    for (const source of feature.properties?.sources || []) {
+      if (source.dataset && !sourceLicense(source.dataset))
+        unknownDatasets[source.dataset] =
+          (unknownDatasets[source.dataset] || 0) + 1;
+    }
+    const b = normalizePlace(feature, region, release, importedAt, (reason) => {
+      rejectionReasons[reason] = (rejectionReasons[reason] || 0) + 1;
+    });
     if (b) records.set(b.id, b);
     else rejected++;
   }
   if (!records.size)
     throw new Error(
-      "Importen indeholder ingen anvendelige virksomheder. Tidligere data er bevaret.",
+      "Importen indeholder ingen anvendelige virksomheder. Tidligere data er bevaret. " +
+        JSON.stringify({
+          input: features.length,
+          rejectionReasons,
+          unknownDatasets,
+        }),
     );
   return {
     version: 1,
@@ -190,6 +219,7 @@ export function prepareSnapshot(
     importedAt,
     records: [...records.values()],
     rejected,
+    rejectionReasons,
     attribution: "Overture Maps Foundation · kildelicenser pr. virksomhed",
   };
 }

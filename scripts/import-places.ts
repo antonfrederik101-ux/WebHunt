@@ -81,6 +81,7 @@ async function main() {
       release: snapshot.release,
       count: snapshot.records.length,
       rejected: snapshot.rejected,
+      rejectionReasons: snapshot.rejectionReasons,
       sha256: createHash("sha256").update(raw).digest("hex"),
       importedAt: snapshot.importedAt,
     }),

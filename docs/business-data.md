@@ -135,3 +135,11 @@ adresser med `python3 scripts/check-overture-network.py` før netværkslisten æ
 `bash scripts/import-pilot.sh` samler netværkskontrol, installation, afgrænset import
 og lokal databaseverifikation. Brug den i det eksisterende checkout; den skifter
 ikke miljøindstillinger, kopierer ikke nøgler og overskriver ikke `.env.local`.
+
+## Genbrug et allerede hentet pilotudtræk
+
+Hvis download er gennemført, men normaliseringen fejler, genbrug den senest hentede
+råfil med `node scripts/reimport-pilot.mjs`. Kommandoen henter ingen nye data,
+bevarer det oprindelige udtræk og importerer først til databasen efter validering.
+Fejlrapporten angiver nu antal afvisninger fordelt på årsag og ukendte kildenavne.
+De officielle kilde-id'er `metaPlaces` og `msftPlaces` genkendes med bevaret proveniens.

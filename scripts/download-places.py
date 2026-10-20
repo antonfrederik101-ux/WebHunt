@@ -119,3 +119,6 @@ if __name__ == '__main__':
         main()
     except ImportNetworkError as error:
         raise SystemExit(str(error)) from None
+    except subprocess.CalledProcessError as error:
+        print('Kildeudtrækket er bevaret i .data/imports. Det kan genimporteres med node scripts/reimport-pilot.mjs efter en rettelse.', flush=True)
+        raise SystemExit(error.returncode or 1) from None

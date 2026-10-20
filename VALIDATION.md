@@ -72,3 +72,12 @@ Codespaces-opstartsscriptet blev faktisk kørt efter at have stoppet vores egen 
 
 - Final checks for the diagnostic delivery: production build and typecheck passed; 25 Node tests, 6 Python diagnostic tests and 12 Chromium tests passed. The full pilot helper was exercised and correctly stopped at the known CONNECT 403 without changing data. Its successful live-source path remains unverified until run from a machine with working Overture access.
 - Reviewed official Node/buildpack-deps Dockerfiles: Python venv/ensurepip was not guaranteed in the previous Codespaces image. Added an explicit Dockerfile for future containers and a root/noninteractive-sudo Debian-package check in the helper for existing Codespaces. This installation branch is syntax-reviewed, not claimed as tested in the user's Codespace. No container rebuild is required just to try the helper.
+
+
+## Official source identifiers and cached reimport — 2026-10-20
+
+- User's Codespace log confirms successful real STAC/S3 access to Overture 2026-09-23.1 and 1,745 downloaded places, followed by zero normalized records. The underlying raw GeoJSON remains in their Codespace, not accessible to this Codex process.
+- Found a concrete allowlist defect against the official OvertureMaps/schema examples (commit b53004401617a0709cd2ee3b872bb3672819078e): provider display names were accepted, but the documented IDs `metaPlaces` and `msftPlaces` were rejected. Added exact aliases to existing CDLA-permissive providers, without allowing unknown/restricted sources. Original source identifiers and entries are retained.
+- Failed empty imports now report reason counts and unknown dataset identifiers. Successful snapshots retain rejection counts; failed imports still preserve existing data. Python no longer prints an unhelpful CalledProcessError traceback after a normalization failure.
+- Added network-free cached pilot reimport and end-to-end isolated regression test: cached source-ID records → CLI → spatial database → verified count. Unknown-provider input fails and preserves the previous DB and raw file.
+- 28 Node tests passed. Production build/typecheck passed. Actual corrected import count and real map markers in the user's Codespace remain to be confirmed by running the cached reimport there. No downloaded real records or fake production records have been inserted in this Codex instance.
