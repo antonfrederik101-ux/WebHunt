@@ -17,7 +17,8 @@
     "data:import": "node --use-env-proxy --import tsx scripts/import-places.ts",
     "verify:pilot": "node --use-env-proxy --import tsx scripts/validate-pilot.ts",
     "verify:admin": "node scripts/admin-access.mjs",
-    "verify:diagnose": "node --use-env-proxy --import tsx scripts/diagnose-websites.ts"
+    "verify:diagnose": "node --use-env-proxy --import tsx scripts/diagnose-websites.ts",
+    "verify:identities": "node --use-env-proxy --import tsx scripts/verify-identities.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.6.1",

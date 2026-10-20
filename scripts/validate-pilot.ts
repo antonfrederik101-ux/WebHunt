@@ -5,7 +5,7 @@ import path from "node:path";
 import { BusinessCatalog } from "../lib/business-catalog";
 import { recordHash } from "../lib/verification-store";
 import { verifyBusiness, verificationReport } from "../lib/verification-runner";
-import { normalizeCvr } from "../lib/registry";
+import { normalizeCvr, indexCvr } from "../lib/registry";
 import type { Business } from "../lib/types";
 loadEnvConfig(process.cwd());
 const args = process.argv.slice(2),
@@ -39,6 +39,7 @@ async function main() {
       throw new Error(
         "Ingen importerede pilotvirksomheder fundet. Eksisterende poster er ikke ændret.",
       );
+    const recordsById = new Map(records.map((b) => [b.id, b]));
     const region = db.db
       .prepare("SELECT release FROM catalog_regions WHERE id=?")
       .get("nykoebing-falster");
@@ -65,6 +66,7 @@ async function main() {
         );
       registry = normalizeCvr(raw, observedAt, Infinity);
     }
+    const registryLookup = registry ? indexCvr(registry) : undefined;
     const job = has("--report-only")
       ? null
       : store.createJob("nykoebing-falster", records, has("--force"));
@@ -75,7 +77,7 @@ async function main() {
       for (let i = 0; i < limit; i++) {
         const task = store.claim(job);
         if (!task) break;
-        const b = records.find((x) => x.id === task.id);
+        const b = recordsById.get(task.id);
         if (!b || task.hash !== recordHash(b)) {
           store.finish(job, task.id, task.token, "failed", {
             reason: "Kildeposten er ændret. Opret et nyt job.",
@@ -85,9 +87,9 @@ async function main() {
         try {
           const v = await verifyBusiness(b, store, records, {
             publicEvidence: observations.get(b.id),
-            ...(registry
+            ...(registryLookup
               ? {
-                  registry: async () => registry,
+                  registry: async (b: Business) => registryLookup(b),
                   cvrSource:
                     "CVR-udtræk leveret af administrator (ikke live API)",
                 }

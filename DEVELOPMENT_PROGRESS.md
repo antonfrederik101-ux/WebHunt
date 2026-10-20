@@ -6,7 +6,7 @@ Den [nye brugeropgave](docs/VERIFICATION_REQUEST.md) udvider det tidligere fase 
 
 Implementeret: separate aktivitetsstatusser, kilde-/kontrolhistorik, arkivering frem for sletning, luknings-/dubletfilter, konservativ kildevurdering, kildebelagt manuelt check uden CVR-login, DNS-/SSRF-/robots-beskyttet kontrol, komplet teknisk score, vedvarende caches, genoptagelige jobs, privat `/admin` og faktiske rapporttal. Import- og læsekontrolscripts er bevaret.
 
-Faktiske Nykøbing-resultater er **endnu ikke opgjort**: databasen er kun i brugerens Codespace. Ingen aktiv-/lukket-tal opfindes. CVR-adapterens live kontrakt, faktisk hjemmesideanalyse via dette miljøs netværk, automatisk national aktivitet, fuld visuel UX-vurdering og stor-skala produktionsdrift er ikke verificeret. Ingen nye byer eller AI-bygger aktiveres.
+Brugerens Codespace har nu rapporteret 20 forsøg af 1.448 poster: 16 jobopgaver færdigbehandlet, 4 udsat, ingen dengang bekræftet aktive/lukkede. En redirect-fejl i robots.txt er rettet; brugerens efterfølgende kontrol og browserbillede bekræfter en gemt Lighthouse-score på 83 for Cc Clothing. Brugerens CVR-skærmbillede viser CC-Clothing, CVR 41941553, aktiv, Randersvej 10, 4800 Nykøbing F samt aktiv P-enhed 1026584775. Denne aktivitetsbekræftelse er endnu ikke gemt i brugerens database. Databasen og PageSpeed-nøglen findes kun i brugerens Codespace. Automatisk national aktivitet, fuld visuel UX-vurdering og produktionsdrift i stor skala er ikke verificeret. Ingen nye byer eller AI-bygger aktiveres.
 
 Nedenstående fasebeskrivelse og tidligere testresultater er historisk baggrund fra forrige levering. Nye regler i kontrolrapporten har forrang, herunder at personlige farver ikke erstatter aktivitetsbevis.
 
@@ -76,3 +76,8 @@ Standardopsætningen med SQLite kræver ingen SQL-handling. Hvis kataloget særs
 7. Produktionsoptimering og validering med 300.000–500.000 faktiske opslag.
 
 Eksisterende login, analyser, private leads, noter, statusser og CSV er bevaret. Ingen funktionsløse knapper til de senere faser er tilføjet.
+# Fortsættelse: batchidentitet før udvidelse til 20.000 virksomheder
+
+Separat, kildebaseret `verify:identities`-worker er implementeret og afkoblet fra PageSpeed. Skrivebeskyttet preview, indekserede match, SHA-256-proveniens, genoptagelse og bevarelse af tidligere hjemmesidekontroller. Et nyt udtræk kan ikke blive skjult af cachen fra et ældre/live CVR-opslag. Se [batchvejledningen](docs/BULK_IDENTITY.md).
+
+64 Node-tests samt TypeScript-kontrol. 20.000 testidentiteter er syntetiske; der er ikke hentet 20.000 rigtige virksomheder. Faktisk masseadgang og vilkår kunne ikke verificeres, fordi miljøproxyen afviste de testede officielle datakilder med CONNECT 403. Næste afhængighed er dokumenteret kildeadgang og et faktisk datasample. Ingen abonnementer, scheduler eller ny ekstern udbyder er aktiveret. Eksisterende Codespace-database og brugerens miljøvariabler er ikke tilgængelige eller ændret her.

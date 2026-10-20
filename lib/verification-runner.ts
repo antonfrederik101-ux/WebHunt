@@ -61,6 +61,7 @@ export async function verifyBusiness(
     inspect?: typeof inspectWebsite;
     cvrSource?: string;
     publicEvidence?: IdentityEvidence;
+    identityOnly?: boolean;
   } = {},
 ): Promise<Verification> {
   const at = new Date().toISOString(),
@@ -79,10 +80,12 @@ export async function verifyBusiness(
         throw new Error(
           "De åbne importoplysninger dokumenterer ikke virksomhedens aktuelle aktivitet. Et kildebelagt offentligt opslag kan registreres af administrator uden CVR-login.",
         );
-      records =
-        store.cache<CvrRecord[]>(key) ||
-        (await (options.registry || lookupCvr)(b));
-      store.putCache(key, records);
+      // A dated import is its own source. Never reuse a different export/live
+      // lookup from the per-company cache or pass file evidence off as live data.
+      records = options.registry
+        ? await options.registry(b)
+        : store.cache<CvrRecord[]>(key) || (await lookupCvr(b));
+      if (!options.registry) store.putCache(key, records);
       identity = matchCvr(b, records, options.cvrSource);
       searchComplete =
         identity.state === "active" && identity.addressMatch === "same";
@@ -171,6 +174,11 @@ export async function verifyBusiness(
       : "Hjemmesidesøgningen kan ikke afsluttes, før identiteten er afklaret i en pålidelig kilde.",
   };
   if (identity.state === "closed") return v;
+  if (options.identityOnly) {
+    // Source refresh must not discard a paid/slow website measurement or scan a site.
+    v.website = previous?.website;
+    return v;
+  }
   if (links.website) {
     v.website = await (options.inspect || inspectWebsite)(links.website, store);
     // Persistent 404/410 requires independent observations at least a day apart.

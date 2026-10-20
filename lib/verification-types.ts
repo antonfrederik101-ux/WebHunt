@@ -11,6 +11,7 @@ export type IdentityEvidence = {
   checkedAt: string;
   source: string;
   sourceUrl?: string;
+  sourceSnapshot?: string;
   reason: string;
   cvr?: string;
   matchedName?: string;

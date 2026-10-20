@@ -22,6 +22,29 @@ export type CvrRecord = {
   sourceUrl: string;
   observedAt: string;
 };
+/** Build once per snapshot: no full-register scan for each map place. */
+export function indexCvr(records: CvrRecord[]) {
+  const byCvr = new Map<string, CvrRecord[]>();
+  const byIdentity = new Map<string, CvrRecord[]>();
+  const key = (name: string, address: string, postcode: string) =>
+    JSON.stringify([identityText(name), identityText(address), postcode]);
+  const add = (map: Map<string, CvrRecord[]>, k: string, r: CvrRecord) => {
+    const values = map.get(k);
+    if (values) values.push(r);
+    else map.set(k, [r]);
+  };
+  for (const r of records) {
+    add(byCvr, r.cvr, r);
+    for (const k of new Set(
+      r.names.map((name) => key(name, r.address, r.postcode)),
+    ))
+      add(byIdentity, k, r);
+  }
+  return (b: Business): CvrRecord[] =>
+    (/^\d{8}$/.test(b.cvr || "")
+      ? byCvr.get(b.cvr!)
+      : byIdentity.get(key(b.name, b.address, b.postcode))) || [];
+}
 const text = (v: unknown) =>
   typeof v === "string" || typeof v === "number" ? String(v) : "";
 /** Minimum public company fields only. No participants, owners or personal contacts are retained. */

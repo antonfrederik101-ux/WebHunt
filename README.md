@@ -5,6 +5,8 @@ Dansk virksomhedskort til webdesignere. Next.js 16, React 19, TypeScript, Tailwi
 ## Aktuel leverance: virksomhedsvalidering og hjemmesidekontrol
 
 Se [kontrolrapporten](docs/VERIFICATION_REPORT.md) for ny datamodel, kilder, score, tests og kendte begrænsninger.
+
+Kontrol af større, daterede CVR-udtræk kan køres separat fra hjemmesideanalysen med `verify:identities`. Se [batchvejledningen](docs/BULK_IDENTITY.md). Kommandoen kræver et faktisk, lovligt indhentet JSON-udtræk og vælger ikke automatisk en dataleverandør.
 Lukkede poster skjules og bevares i databasen. Ubekræftede virksomheder er grå; en personlig farve eller et tomt hjemmesidefelt er ikke aktivitetsbevis.
 `npm run verify:pilot -- --limit 20` starter/genoptager en batch i det eksisterende Codespace.
 Den faktiske Nykøbing-rapport kan først opgøres, når workeren er kørt på databasen dér.

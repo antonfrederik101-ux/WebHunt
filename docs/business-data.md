@@ -39,9 +39,9 @@ Officielle indgange til kontrol af adgang, produkter og aktuelle vilkår:
 - https://datafordeler.dk/dataoversigt/det-centrale-virksomhedsregister-cvr/
 
 De konkrete CVR-/Datafordeler-sider var netværksblokeret i denne session; aktuelle
-API-adgangsvilkår og produktlicenser er derfor **ikke verificeret**. Der er ingen
-CVR-integration eller uautoriseret scraping i denne version. Overture bruges først,
-og CVR kan tilføjes gennem en separat, dokumenteret og autoriseret importadapter.
+API-adgangsvilkår og produktlicenser er derfor **ikke verificeret**. Der er en separat
+adapter til kontrol mod et dateret, administratorleveret CVR-JSON-udtræk, men ingen
+aktiveret masseleverandør eller scraping af CVR-søgesiden. Se [batchvejledningen](BULK_IDENTITY.md).
 Offentlige kontaktoplysninger er ikke et samtykke til uanmodet markedsføring.
 
 ## Drift uden Overpass
