@@ -2,6 +2,8 @@
 
 ## Opfølgning 22. oktober: Datafordeler-nøgle og forbindelsestest
 
+Seneste bekræftelse: brugerens `CVREnhed/bitemporal`-probe returnerer HTTP 200 og ZIP-signatur; den oprindelige `current`-forespørgsel var forkert, fordi dokumentationen kun udstiller CVREnhed bitemporalt. Ny `data:cvr:schema` undersøger et begrænset ZIP-/JSON-præfiks uden lagring eller databaseændring. 72 tests og TypeScript-kontrol består. Næste nødvendige input er den faktiske feltoversigt fra brugerens Codespace; ingen Datafordeler-adapter må gætte det distributionsschema, som den eksisterende CVR-adapter bruger.
+
 Brugeren har nu oprettet et aktivt IT-system og en API-key hos Datafordeleren og bekræftet, at `DATAFORDELER_API_KEY` er gemt i sit Codespace. Ny `data:cvr:check` prøver begrænset filadgang uden databaseændringer, nøgleoutput eller en fuld download. 68 Node-tests og TypeScript-kontrol bestået. Proxyen her afviser API-værten før upstream; den virkelige prøve skal køres i brugerens Codespace. Se [faktisk dokumentationsgrundlag og næste afhængighed](docs/DATAFORDELER.md). Ingen CVRPerson, ny datakontrakt, landsimport eller scheduler er foregivet.
 
 ## Aktuel opgave: troværdige virksomheds- og hjemmesidestatusser

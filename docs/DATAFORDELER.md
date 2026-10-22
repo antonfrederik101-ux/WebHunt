@@ -31,6 +31,20 @@ Der åbnes ingen database, gemmes ingen virksomhedsdata og anmodes ikke om CVRPe
 
 ## Resterende arbejde
 
+### Begrænset skemaprøve efter bekræftet adgang
+
+Brugerens rettede kørsel med `CVREnhed/bitemporal` gav faktisk HTTP 200, `application/zip`, `file_available` og 3.688 modtagne bytes; serveren ignorerede Range. Forbindelsen virker dermed i brugerens Codespace. Ingen fuld fil eller virksomheder blev importeret ved denne prøve.
+
+```bash
+npm run data:cvr:schema
+```
+
+Denne separate prøve bruger samme endpoint/nøgle og indsamler højst 256 KiB komprimeret præfiks i hukommelsen. En allerede modtaget netværksblok kan være større; overskydende bytes kasseres og overførslen afbrydes. Udkomprimering begrænses til 1 MiB; meget komprimerede data undersøges med kortere inputpræfikser. Der skrives ingen fil eller database. Støttede ZIP-metoder er stored/deflate, også med efterfølgende data descriptor. Kryptering og et første element uden JSON-endelse giver en kontrolleret stopbesked.
+
+Output indeholder kun observerede feltnavne og værdityper, ikke faktiske virksomhedsoplysninger, dato-/CVR-værdier eller nøglen. Undersøgelsen er en tokenbaseret præfiksinspektion, ikke en påstand om et fuldstændigt valideret JSON-schema eller et CRC-kontrolleret ZIP-arkiv. Felter med usædvanligt formaterede/escaped navne kan udelades. Samme navn på flere indlejringsniveauer samles i denne foreløbige oversigt. Der kan derfor ikke bygges en sikker normalisering eller aktivitetsklassificering alene ud fra typerne uden også at afklare struktur, perioder og statusdefinitioner.
+
+72 Node-tests og TypeScript-kontrol bestået. Prøverne dækker felttyper uden værdier, forskellige ZIP-metoder, præfiks/data descriptor, ekspansionsgrænser, afbrudt overførsel, uventet format og beskyttelse mod nøgleoutput i fejl/redirect. CLI uden nøgle er også kørt: fejlstatus uden netkald. Den faktiske skemaprøve mangler fortsat i brugerens Codespace.
+
 En fuld CVR-download, schemaadapter, kobling af P-enheder/adresser, første verificerede import og planlagt opdatering er **ikke** implementeret af denne probe. Det eksisterende `verify:identities` læser fortsat det særskilte, dokumenterede CVR-distributionsformat og kan ikke få en ukendt Datafordeler-fil lagt ind som om formaterne var ens. Adapteren skal bygges mod et faktisk datasample og dokumenterede felter, så der ikke gættes status eller identitet.
 
 Den 22. oktober 2026 afviste dette udviklingsmiljøs proxy også `api.datafordeler.dk` med HTTPS CONNECT 403, før API'et kunne nås. Brugerens nøgle og virkelige database ligger i det andet Codespace. Ingen fungerende liveforbindelse eller 20.000 faktiske virksomheder påstås på baggrund af kontrollerede tests.

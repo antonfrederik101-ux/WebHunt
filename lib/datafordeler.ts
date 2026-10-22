@@ -26,10 +26,7 @@ export type CvrProbe = {
   imported: false;
   diagnostic: string;
 };
-export async function probeDatafordeler(
-  key: string,
-  request: typeof fetch = fetch,
-): Promise<CvrProbe> {
+export function datafordelerCvrUrl(key: string): URL {
   if (!key.trim() || key.trim().length > 4096 || /[\r\n]/.test(key))
     throw new Error(
       "DATAFORDELER_API_KEY mangler eller har ugyldigt format. Ingen forespørgsel er sendt.",
@@ -40,6 +37,13 @@ export async function probeDatafordeler(
   url.searchParams.set("type", "bitemporal");
   url.searchParams.set("format", "JSON");
   url.searchParams.set("apiKey", key.trim());
+  return url;
+}
+export async function probeDatafordeler(
+  key: string,
+  request: typeof fetch = fetch,
+): Promise<CvrProbe> {
+  const url = datafordelerCvrUrl(key);
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(), 30000);
   const result: CvrProbe = {

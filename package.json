@@ -19,7 +19,8 @@
     "verify:admin": "node scripts/admin-access.mjs",
     "verify:diagnose": "node --use-env-proxy --import tsx scripts/diagnose-websites.ts",
     "verify:identities": "node --use-env-proxy --import tsx scripts/verify-identities.ts",
-    "data:cvr:check": "node --use-env-proxy --import tsx scripts/check-datafordeler.ts"
+    "data:cvr:check": "node --use-env-proxy --import tsx scripts/check-datafordeler.ts",
+    "data:cvr:schema": "node --use-env-proxy --import tsx scripts/inspect-datafordeler.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.6.1",
