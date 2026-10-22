@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { probeDatafordeler, CVR_DOWNLOAD_ENDPOINT } from "../lib/datafordeler";
 
 const secret = "synthetic-private-test-key-do-not-log";
-test("Datafordeler probe requests only current CVREnhed, checks split ZIP signature and cancels even if Range is ignored", async () => {
+test("Datafordeler probe requests CVREnhed only in its documented bitemporal form, checks split ZIP signature and cancels even if Range is ignored", async () => {
   let cancelled = false,
     signal: AbortSignal | undefined;
   const response = new Response(
@@ -30,7 +30,7 @@ test("Datafordeler probe requests only current CVREnhed, checks split ZIP signat
     assert.equal(u.searchParams.get("apiKey"), secret);
     assert.equal(u.searchParams.get("Register"), "CVR");
     assert.equal(u.searchParams.get("LatestTotalForEntity"), "CVREnhed");
-    assert.equal(u.searchParams.get("type"), "current");
+    assert.equal(u.searchParams.get("type"), "bitemporal");
     assert.equal(u.searchParams.get("format"), "JSON");
     assert.equal(init?.redirect, "manual");
     assert.equal(new Headers(init?.headers).get("range"), "bytes=0-3");
@@ -38,6 +38,7 @@ test("Datafordeler probe requests only current CVREnhed, checks split ZIP signat
     return response;
   }) as typeof fetch);
   assert.equal(result.outcome, "file_available");
+  assert.equal(result.filter, "bitemporal");
   assert.equal(result.rangeHonoured, false);
   assert.equal(result.receivedBytes, 5);
   assert.equal(result.fileBytes, 999999999);

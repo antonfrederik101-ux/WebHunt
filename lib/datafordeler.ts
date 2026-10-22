@@ -1,11 +1,12 @@
 /** The file-download endpoint shown in Datafordeler's CVR documentation.
- * Probe only CVREnhed/current, never CVRPerson or an entire register archive.
+ * CVREnhed is published only as bitemporal, per the CVR file-download table.
+ * Probe only that entity, never CVRPerson or an entire register archive.
  */
 export const CVR_DOWNLOAD_ENDPOINT =
   "https://api.datafordeler.dk/FileDownloads/GetFile";
 export type CvrProbe = {
   entity: "CVREnhed";
-  filter: "current";
+  filter: "bitemporal";
   outcome:
     | "file_available"
     | "authentication_rejected"
@@ -36,14 +37,14 @@ export async function probeDatafordeler(
   const url = new URL(CVR_DOWNLOAD_ENDPOINT);
   url.searchParams.set("Register", "CVR");
   url.searchParams.set("LatestTotalForEntity", "CVREnhed");
-  url.searchParams.set("type", "current");
+  url.searchParams.set("type", "bitemporal");
   url.searchParams.set("format", "JSON");
   url.searchParams.set("apiKey", key.trim());
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(), 30000);
   const result: CvrProbe = {
     entity: "CVREnhed",
-    filter: "current",
+    filter: "bitemporal",
     outcome: "network_error",
     receivedBytes: 0,
     imported: false,
@@ -110,7 +111,7 @@ export async function probeDatafordeler(
     } else if ([400, 404, 405, 416, 422].includes(response.status)) {
       result.outcome = "request_not_supported";
       result.diagnostic =
-        "Forespørgslen eller udtrækket blev ikke fundet/accepteret. Endpoint, entitet og current-filter skal afklares; nøglen er ikke dermed konstateret forkert.";
+        "Forespørgslen eller udtrækket blev ikke fundet/accepteret. Endpoint, entitet og bitemporal-filter skal afklares; nøglen er ikke dermed konstateret forkert.";
     } else if (response.status >= 500) {
       result.outcome = "unavailable";
       result.diagnostic =
