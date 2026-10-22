@@ -112,3 +112,6 @@ Codespaces-opstartsscriptet blev faktisk kørt efter at have stoppet vores egen 
 # Batchkontrol af identitet — 20. oktober 2026
 
 64 Node-tests og TypeScript-kontrol bestået. Nyt indeks afprøvet med 20.000 syntetiske identiteter; separat CLI afprøvet mod isoleret database med preview, batch/genoptagelse, kilde-/katalogskift, bevaret historik og hjemmesidekontrol. Ingen live masseimport eller browserændring er påstået. Den rigtige virksomhedsdatabase ligger i brugerens Codespace. Officielle CVR-/Datafordeler-indgange og de undersøgte leverandørsider var utilgængelige før upstream via proxyens CONNECT 403. Det beviser ikke udbydernes faktiske tilgængelighed eller tilladelser. Ingen proxy-/TLS-omgåelse eller netværksændring udført.
+# Datafordeler-probe — 22. oktober 2026
+
+68 Node-tests og TypeScript-kontrol bestået. ZIP-signatur/range, afbrudt filstrøm, HTTP-fejl, nøglebeskyttelse og manglende nøgle testes med kontrolleret transport. Ingen faktisk nøgle findes i dette miljø; API-værten er blokeret før upstream af HTTPS-proxyens CONNECT 403. Brugers Codespace skal levere det faktiske svar før schema/import kan valideres. Ingen browserkode eller eksisterende data ændret.
